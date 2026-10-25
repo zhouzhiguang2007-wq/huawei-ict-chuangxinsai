@@ -14,7 +14,7 @@ Resolve the following before a live search when they materially affect the resul
 - Mobility limits, transfer tolerance, maximum walking distance, and acceptable modes.
 - Whether the budget includes intercity travel and whether overnight travel is acceptable.
 
-Do not guess a railway date, city station, or airport when multiple choices would produce materially different results. Prefer a named terminal over a city centroid.
+Do not guess a railway date, city station, or airport when multiple choices would produce materially different results. A past or missing date cannot support a live booking claim: ask for a future date when essential, or use a clearly labeled illustrative date for a scenario and leave the actual itinerary unconfirmed. Prefer a named terminal over a city centroid.
 
 ## 2. Assign each source a role
 
@@ -25,7 +25,7 @@ Do not guess a railway date, city station, or airport when multiple choices woul
 | Baidu Maps | Mainland-China POI/station-exit cross-check, walking/driving/transit alternatives, route duration and traffic context | Authoritative railway availability or fare |
 | Tencent Maps | Additional mainland-China POI, route and live-traffic cross-check when accessible | Authoritative railway availability or fare |
 | Google Maps | International routes and a secondary geographic cross-check; use cautiously where mainland-China coverage or service availability differs | Sole authority for mainland-China public transit, traffic or railway data |
-| Ctrip/Trip.com | Flights, hotels, airport transfers and non-rail transport products when the connected capability supports them | Any railway schedule, fare, remaining-ticket or recommendation in this skill |
+| Ctrip/Trip.com | Flights, hotels, airport transfers and non-rail transport listings on public browser pages | Any railway schedule, fare, remaining-ticket or recommendation in this skill |
 | Tongcheng | Flights, coaches, ferries, transfers and price discovery from accessible public pages | Any railway schedule, fare, remaining-ticket or recommendation in this skill |
 | Official operator | Metro/bus/airport/coach/ferry timetables, closures, first/last service, boarding and baggage rules | Replacing 12306 for China railway ticket data |
 
@@ -37,10 +37,11 @@ For every railway query:
 
 1. Use only an official `12306.cn`, `kyfw.12306.cn`, or `mobile.12306.cn` page or an explicitly verified official 12306 application surface.
 2. Require origin, destination, and travel date for availability. Resolve the exact station names before comparing trains.
-3. Record the query timestamp in China Standard Time and distinguish scheduled data from live remaining-ticket status.
-4. Capture train number, departure/arrival station and time, duration, seat class, displayed fare, availability wording, and transfer count.
-5. State that remaining tickets and fares can change before payment. When 12306 indicates that station announcements or checkout prevail, preserve that qualification.
-6. For delays, platform/gate, temporary suspension, or same-day disruption, prefer the relevant live 12306 function and station announcement.
+3. On a city-wide result page, inspect the actual origin and destination stations shown in each row; filter to the intended pair. A query header such as “郑州东→开封北” can still list “新郑机场→开封” trains after city expansion. Distinguish “机场→开封北无车” from “机场→开封站有车”.
+4. Record the query timestamp in China Standard Time and distinguish scheduled data from live remaining-ticket status.
+5. Capture train number, departure/arrival station and time, duration, seat class, displayed fare, availability wording, and transfer count.
+6. State that remaining tickets and fares can change before payment. When 12306 indicates that station announcements or checkout prevail, preserve that qualification.
+7. For delays, platform/gate, temporary suspension, or same-day disruption, prefer the relevant live 12306 function and station announcement.
 
 Never call or quote a Ctrip/Trip.com, Tongcheng, map, social, or search-engine train result as railway evidence. If 12306 is inaccessible, blocked by login/CAPTCHA, outside its service window, or returns no usable result, report that limitation and leave railway values blank. Do not silently substitute another source.
 
@@ -50,7 +51,7 @@ Do not automate account registration, passenger identity entry, CAPTCHA solving,
 
 For mainland-China routes, prefer Amap as the primary estimate and use Baidu or Tencent Maps when a second estimate can expose POI ambiguity, station-exit differences, or live-traffic variation. Use Google Maps primarily for international trips or as a clearly labeled secondary reference.
 
-When a structured API is configured, its provider key or approved connector must be supplied through the environment. Never invent, print, commit, or request a secret in a public document. If no key or connector is available, use the provider's public web route view when accessible.
+Use public browser route pages for map research in this workflow. Do not configure or call a provider API. Confirm that the resolved place is the intended station, airport terminal, or destination rather than a similarly named company or city centroid.
 
 Map providers use different coordinate systems and POI identifiers. Do not directly combine raw coordinates from Amap/Tencent, Baidu, and Google without a documented conversion. Prefer verified place names, provider POI IDs, station exits, and route-level distance/time results.
 
@@ -63,13 +64,13 @@ For every useful route candidate, capture:
 - Traffic basis and query time for traffic-sensitive driving estimates.
 - Accessibility, luggage, late-night, weather, and station-exit concerns.
 
-Map estimates are snapshots. Do not present a traffic-aware duration as a guaranteed arrival time. For a high-consequence connection, plan against the slower credible estimate and add terminal-specific buffer.
+Map estimates are snapshots. Do not present a traffic-aware duration as a guaranteed arrival time. For a high-consequence connection, plan against the slower credible estimate and add terminal-specific buffer. An airport POI-to-rail-station walk such as 161 m/3 min describes map geometry only; include deplaning, baggage claim, terminal navigation, railway security, and boarding cutoff before recommending a train.
 
 ## 5. Use travel platforms without blurring authority
 
-Use the connected Ctrip/Trip.com capability for supported flight, hotel, or transfer searches. Use Tongcheng public pages for supported flight, coach, ferry, or transfer comparison when accessible. Never invoke either platform's train-search feature under this workflow.
+Use Ctrip/Trip.com or Tongcheng public browser pages for supported flight, hotel, coach, ferry, or transfer searches when accessible. Never invoke either platform's train-search feature under this workflow.
 
-For flights, compare at least route, date, airport/terminal, departure and arrival time, elapsed duration, transfer cities, baggage inclusion when exposed, and current displayed fare. Treat OTA fares as snapshots and note that checkout can change the final amount. Prefer airline or airport notices for cancellations, terminal changes, and baggage rules.
+For flights, compare at least route, date, airport/terminal, departure and arrival time, elapsed duration, transfer cities, baggage inclusion when exposed, and current displayed fare. Treat OTA fares as listing snapshots; do not call a displayed “¥260起” a payable total until checkout fees and optional packages are confirmed. Do not start a booking merely to obtain a quote. Prefer airline or airport notices for cancellations, terminal changes, and baggage rules.
 
 For coaches and ferries, verify the correct terminal, service date, operating company, boarding cutoff, baggage restrictions, and weather-related suspension risk. Prefer the operator's notice over an older OTA listing.
 
@@ -112,18 +113,20 @@ For each travel block, state:
 3. Departure target, expected arrival, and buffer.
 4. Transfers, walking burden, station exit or terminal when verified.
 5. Estimated cost and what it includes.
-6. Source, query timestamp, and confidence.
+6. Source link, query timestamp, and verification status.
 7. A nearby or same-corridor fallback when a service is disrupted.
+
+Every generated travel-plan report must contain this transport chain as a “交通查询与接驳” table, including origin access when known, outbound and return intercity legs when in scope, airport/station transfers, destination arrival, and consequential daily local legs. Keep unknown rows or cells marked “待查询/未核实”; never omit the section because live prices are unavailable. Show listed transport subtotal, excluded fees, and its relation to the overall trip budget without double counting.
 
 Refresh live traffic shortly before departure. Refresh railway availability on 12306 before making a purchase decision, and never reuse an earlier trip's remaining-ticket result.
 
 ## 9. Stop conditions and fallbacks
 
-After two failed attempts on the same source and query, change the access method, simplify the query, or move to another permitted source. Do not loop on login, CAPTCHA, blocked pages, or invalid API keys.
+After two failed attempts on the same source and query, change the access method, simplify the query, or move to another permitted source. Do not loop on login, CAPTCHA, or blocked pages.
 
 Fallbacks must respect source boundaries:
 
-- Map API unavailable: use its public route page, then another map provider for an estimate.
+- Map page unavailable: try another public map route page for an estimate.
 - Ctrip/Trip.com unavailable: use airline/operator sources or Tongcheng for non-rail products.
 - Tongcheng unavailable: use Ctrip/Trip.com or the official non-rail operator.
 - 12306 unavailable: report that railway data could not be verified; do not use any third-party railway source.
