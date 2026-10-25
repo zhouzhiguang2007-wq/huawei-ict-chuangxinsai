@@ -35,6 +35,17 @@ Each itinerary row should include:
 - Estimated cost per person and for the group when applicable.
 - Reservation, closure, weather, or accessibility note.
 
+## Mandatory transport section in a travel-plan report
+
+Include “交通查询与接驳” in every generated itinerary or travel-plan file, including short answers. Use one row per meaningful leg; cover origin access when known, intercity travel, airport/station transfer, destination arrival, daily local moves, and the return leg when within scope.
+
+| Date/leg | Exact endpoints | Mode and service | Depart–arrive / duration | Transfers and walk | Fare and inclusion | Source and query time | Buffer / status |
+|---|---|---|---|---|---|---|---|
+
+For a flight-plus-rail journey, name the airport terminal and the separate railway station. Count time from scheduled landing to train departure, then allow for deplaning, baggage, walking, security, and boarding cutoff. A map's short POI-to-POI walking time is not the full transfer time. Use 12306 alone for train facts; show seat class and availability wording. For flights, distinguish listing price from confirmed checkout total. Put access fares, local transit, and exclusions in the budget without double counting.
+
+If the origin, travel date, exact terminal, live page, or price is missing, write “待查询/未核实” in the affected cell and identify the missing input or blocked source. Do not substitute an arbitrary future date as a real itinerary. A clearly labeled sample date is acceptable only for a scenario demonstration.
+
 ## Output templates
 
 ### Fast answer
@@ -42,10 +53,10 @@ Each itinerary row should include:
 Use for simple requests:
 
 1. Feasibility and assumptions.
-2. Day-by-day route.
-3. Budget summary.
-4. Best time and two cautions.
-5. Sources.
+2. Transport query and connection table, including pending fields.
+3. Day-by-day route.
+4. Budget summary.
+5. Best time, practical cautions, and sources.
 
 ### Comparison report
 
@@ -56,11 +67,12 @@ Use when the user asks to compare Douyin, Xiaohongshu, and browser results:
 3. Platform-specific emphasis.
 4. Official verification and conflicts.
 5. Final retained/removed candidates with reasons.
-6. Optimized itinerary and budget.
+6. Transport query and connection table.
+7. Optimized itinerary and budget.
 
 ### File-ready report
 
-Use descriptive headings, repeated table headers, currency units, page-friendly tables, and a final “价格与开放信息核验日期” note. Put citations or source links near the relevant sections. Do not let decorative layout hide assumptions or estimates.
+Use descriptive headings, repeated table headers, currency units, page-friendly tables, a “交通查询与接驳” table, and a final “价格与开放信息核验日期” note. Put citations or source links near the relevant sections. Do not let decorative layout hide assumptions or estimates.
 
 ## Follow-up modifications
 
