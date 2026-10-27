@@ -50,13 +50,30 @@ class ValidateRequirementsTest(unittest.TestCase):
         result = validate_requirements(request)
         self.assertFalse(result["valid"])
 
-    def test_unknown_budget_is_warning_not_core_blocker(self):
+    def test_unknown_budget_blocks_full_trip(self):
         request = complete_request()
         request["budget"]["amount"] = None
         result = validate_requirements(request)
         self.assertTrue(result["valid"])
-        self.assertTrue(result["ready"])
+        self.assertFalse(result["ready"])
+        self.assertIn("budget.amount", result["missing_fields"])
         self.assertTrue(result["warnings"])
+
+    def test_unknown_days_blocks_full_trip_without_guessing(self):
+        request = complete_request()
+        request["dates"]["days"] = None
+        request["dates"]["end_date"] = None
+        result = validate_requirements(request)
+        self.assertTrue(result["valid"])
+        self.assertFalse(result["ready"])
+        self.assertIn("dates.days", result["missing_fields"])
+
+    def test_existing_budget_and_group_size_are_reused(self):
+        request = complete_request()
+        request["dates"]["start_date"] = None
+        request["dates"]["end_date"] = None
+        result = validate_requirements(request)
+        self.assertEqual(result["missing_fields"], ["dates.start_date"])
 
 
 if __name__ == "__main__":

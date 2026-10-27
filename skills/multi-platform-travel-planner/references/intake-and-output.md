@@ -4,24 +4,24 @@ Use this reference for incomplete prompts, complex constraints, follow-up change
 
 ## Intake fields
 
-| Field | Required | Default when omitted |
+| Field | Required for a full trip | If missing |
 |---|---|---|
 | Destination | Yes | Ask if absent |
+| Departure date or date window | Yes | Ask before date-specific planning |
+| Approximate budget and per-person/group scope | Yes | Ask; retain any previously stated limit |
 | Duration | Yes | Ask if absent |
-| Total budget | Yes for budget planning | If absent, provide a tiered estimate and label it |
-| Party size | No | 1 traveler |
-| Intercity transport included | No | Show excluded total and a separate placeholder/estimate |
-| Dates or season | No | Recommend the best period and warn that prices are date-sensitive |
-| Arrival/departure times | No | Assume arrival 09:00 and departure 18:00 |
+| Party size | Yes for group cost/rooms | Ask if absent |
+| Intercity transport included | Yes for a capped total | Ask if the answer changes affordability |
+| Arrival/departure times | When fixed by user | Keep unknown until transport is selected |
 | Origin city | No | Needed only for intercity fare calculation |
-| Interests | No | Balanced food, landmark, culture, and relaxed walking |
-| Walking/mobility | No | Moderate walking, no special accessibility needs |
-| Local transport | No | Metro/bus/walking first |
-| Accommodation | No | Clean budget lodging near a major transit hub |
+| Interests | Confirm after core fields | Derive only a tentative hypothesis from what the user said, then ask |
+| Walking/mobility | Ask if group composition or activities make it material | Keep unknown; do not assume everyone can walk moderately |
+| Local transport | No | Compare available modes; do not record a preference without evidence |
+| Accommodation | Ask room distribution for a group | Keep room count as a scenario until confirmed |
 | Sources/platforms | No | Public web plus official sources; add named platforms |
 | Output | No | Concise report in chat |
 
-State every consequential default under “规划假设”. Do not ask a chain of questions when assumptions can produce a useful first draft.
+Ask one question per turn in this order: destination, departure date, budget amount/scope, days, group size, then preference confirmation. Skip known fields and accept volunteered answers to future questions. A preference inferred from “美食为主” or “想拍照” is a proposal, not an approved constraint. While awaiting an answer, research stable facts and photos, but leave the itinerary and computed package price pending. If the user wants an explicit demonstration, use a visible “假设情境” label and do not present it as the user's actual trip.
 
 ## Planning units
 
@@ -52,7 +52,7 @@ If the origin, travel date, exact terminal, live page, or price is missing, writ
 
 Use for simple requests:
 
-1. Feasibility and assumptions.
+1. Confirmed inputs, outstanding question, then feasibility once core fields are known.
 2. Transport query and connection table, including pending fields.
 3. Day-by-day route.
 4. Budget summary.

@@ -47,6 +47,7 @@ def validate_requirements(data: Any) -> Dict[str, Any]:
     travelers = data.get("travelers")
     budget = data.get("budget")
     preferences = data.get("preferences")
+    task_scope = data.get("task_scope", "full_trip")
 
     if not isinstance(destination, dict):
         errors.append("destination must be an object")
@@ -116,6 +117,14 @@ def validate_requirements(data: Any) -> Dict[str, Any]:
     unknown = data.get("unknown_fields", [])
     if not isinstance(unknown, list) or any(not isinstance(item, str) for item in unknown):
         errors.append("unknown_fields must be an array of strings")
+
+    if task_scope == "full_trip":
+        if travelers is None or (isinstance(travelers, dict) and travelers.get("total") is None):
+            missing.append("travelers.total")
+        if budget is None or (isinstance(budget, dict) and budget.get("amount") is None and not budget.get("no_limit")):
+            missing.append("budget.amount")
+        if budget is None or (isinstance(budget, dict) and budget.get("scope") in (None, "unspecified") and not budget.get("no_limit")):
+            missing.append("budget.scope")
 
     if travelers is None or (isinstance(travelers, dict) and travelers.get("total") is None):
         warnings.append("traveler count is unknown; accommodation and total-cost planning may require clarification")

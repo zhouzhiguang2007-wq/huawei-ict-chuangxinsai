@@ -1,6 +1,6 @@
 interface:
   display_name: "旅游需求分析"
-  short_description: "从自然语言提取旅行条件、识别关键缺项并输出标准需求 JSON"
-  default_prompt: "使用 $travel-requirement-analysis 分析我的旅游需求并输出可供工作流使用的 JSON。"
+  short_description: "逐轮询问日期、预算和天数，确认偏好并输出需求 JSON"
+  default_prompt: "使用 $travel-requirement-analysis，复用我已说过的条件，每轮只问一个缺失问题；确认日期、预算、天数和偏好后输出需求 JSON。"
 
 
