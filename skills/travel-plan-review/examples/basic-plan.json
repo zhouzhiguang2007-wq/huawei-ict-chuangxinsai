@@ -21,6 +21,15 @@
         "walk",
         "bus"
       ],
+      "route_policy": {
+        "start_place_id": "a",
+        "end_place_id": "b",
+        "minimum_buffer_minutes": 10,
+        "require_distance": true,
+        "require_availability": true,
+        "checked_at": "2026-10-19T12:05:00+08:00",
+        "max_evidence_age_minutes": 60
+      },
       "additional_checks": []
     },
     "activities": [
@@ -127,7 +136,9 @@
         "mode": "bus",
         "duration_minutes": 30,
         "buffer_minutes": 10,
+        "distance_m": 5000,
         "walking_m": 300,
+        "availability": "available",
         "evidence": {
           "status": "verified",
           "source_ids": [

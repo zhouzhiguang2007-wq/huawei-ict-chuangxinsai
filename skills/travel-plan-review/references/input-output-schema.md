@@ -2,9 +2,11 @@
 
 ## 运行
 
-Python 3.9+，无需第三方包。运行 `python scripts/validate_itinerary.py examples/basic-plan.json`，也可从标准输入读入 JSON。费用和规则校验无网络请求、无定位。运行 `python scripts/test_validate_itinerary.py` 做回归测试。
+Python 3.9+，无需第三方包。运行 `python scripts/validate_itinerary.py examples/basic-plan.json`，也可从标准输入读入 JSON。费用和规则校验无网络请求、无定位。运行 `python scripts/test_validate_itinerary.py` 和 `python scripts/test_agentarts_itinerary_review.py` 做回归测试。
 
-宿主代码可导入 `validate_itinerary.validate(plan)` 做单份校验，或 `validate_itinerary.review(payload)` 同时校验原案和草案。AgentArts 需要开发者按节点参数编写入口包装和映射；文件不会自动注册为平台工具。
+宿主代码可导入 `validate_itinerary.validate(plan)` 做单份校验，或 `validate_itinerary.review(payload)` 同时校验原案和草案。AgentArts代码节点可直接使用 `validate_itinerary.py` 的 `main(args)`；同一文件仍可从命令行运行。文件不会自动注册为平台工具或地图MCP。
+
+AgentArts输入：`plan_json` 为完整plan对象序列化后的String；`candidate_json` 为可选修正草案String，未提供时留空。输出：`status` 为pass/incomplete/fail/invalid，`report_json` 为完整报告JSON字符串。路线时长、距离和可用性必须先由高德等已接入地图工具查询，再按下述leg结构传入。
 
 命令行输出 JSON。原案 invalid 时退出码2，其他检查状态退出码0；必须读取 JSON 中的业务状态，不能将退出码0误认为行程pass。
 
@@ -22,6 +24,7 @@ Python 3.9+，无需第三方包。运行 `python scripts/validate_itinerary.py 
 | daily_windows | 日期到{start,end}的映射，无限制则{}；可跨午夜 |
 | deadlines | {activity_id,at,evidence}列表；引用实际到达活动，at已扣除进站等缓冲 |
 | allowed_transport_modes | 允许的交通方式字符串列表，null表示未限制 |
+| route_policy | 可选null或{start_place_id,end_place_id,minimum_buffer_minutes,require_distance,require_availability,checked_at,max_evidence_age_minutes}；首末地点可null，两个require字段为布尔值，分钟为非负整数，checked_at带时区 |
 | additional_checks | {name,status,evidence}列表；status=pass/fail/unknown，承载其他硬条件 |
 
 ### plan.activities[]
@@ -36,7 +39,9 @@ reservation={required,confirmed,window,evidence}：required和confirmed为true/f
 
 ### plan.legs[]
 
-恰好每相邻两活动一条，按相邻顺序排列。字段from_id/to_id、day（归入出发活动的day）、mode、duration_minutes、buffer_minutes、walking_m、evidence。三个数值字段为非负整数或null。未知不得补零。跨天步行归属规则见validation-rules.md。
+恰好每相邻两活动一条，按相邻顺序排列。字段from_id/to_id、day（归入出发活动的day）、mode、duration_minutes、buffer_minutes、walking_m、evidence；可增加distance_m和availability。四个数值字段为非负整数或null，未知不得补零。availability=available/unavailable/unknown；省略时表示上游未启用显式可用性字段，不等同于已确认可用。跨天步行归属规则见validation-rules.md。
+
+高德等地图工具返回结果建议映射为：duration_minutes=向上取整后的路线分钟数，distance_m=路线总距离，walking_m=全程步行部分，availability按工具是否找到现实路线设置，evidence.source_ids引用记录工具名和查询时间的source。不同地点之间的0分钟或0米会被判定fail。
 
 ### plan.cost_items[]
 

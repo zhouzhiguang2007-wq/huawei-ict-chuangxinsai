@@ -29,9 +29,9 @@ start_leg字段：from_place_id/to_activity_id/mode/duration_minutes/buffer_minu
 
 同travel-plan-review输入，原有上游可以复用；完整可运行样例见 [模拟延误案例](../examples/delay-replan.json)。任何字段缺失或类型不符返回invalid，不用零填补。
 
-- requirements：budget(null或currency/amount_minor/scope)、mandatory_place_ids列表、daily_walking_limit_m(null或非负整数)、daily_windows(日期到start/end对象)、deadlines(activity_id/at/evidence列表)、allowed_transport_modes(null或字符串列表)、additional_checks(name/status/evidence列表)。
+- requirements：budget(null或currency/amount_minor/scope)、mandatory_place_ids列表、daily_walking_limit_m(null或非负整数)、daily_windows(日期到start/end对象)、deadlines(activity_id/at/evidence列表)、allowed_transport_modes(null或字符串列表)、可选route_policy、additional_checks(name/status/evidence列表)。route_policy与travel-plan-review一致，可约束首末地点、最低缓冲、距离完整性和路线证据时效。
 - activities：id/name/place_id/day/start/end/status/locked/optional/min_duration_minutes/walking_m/evidence/opening/reservation。status=planned/completed/in_progress；min_duration_minutes与walking_m可null。opening={applicable,windows,latest_entry,is_latest_entry_known,evidence}，windows=null未知、[]关闭、其他为start/end列表。reservation={required,confirmed,window,evidence}，required/confirmed可null，window可null。时间必须带日期与时区。
-- legs：每相邻活动恰好一项from_id/to_id/day/mode/duration_minutes/buffer_minutes/walking_m/evidence，day等于起点活动day。三个数值可null。
+- legs：每相邻活动恰好一项from_id/to_id/day/mode/duration_minutes/buffer_minutes/walking_m/evidence，可增加distance_m和availability；day等于起点活动day。数值字段可null，availability=available/unavailable/unknown。不同地点不得用0分钟或0米代替地图查询失败。
 - cost_items：id/charge_key/amount_minor/currency/paid/evidence；金额为整个范围内该费用项所有人所有晚数总额，非负整数最小单位或null，不再乘人数。id与charge_key唯一。
 - costs_complete：预算覆盖范围费用是否完整，布尔值。
 - sources：id/reference/queried_at列表；reference为网页URL/工具结果标识/用户明确输入，queried_at带时区。

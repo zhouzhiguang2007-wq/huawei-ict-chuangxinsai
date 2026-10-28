@@ -16,6 +16,12 @@
 
 每相邻两项活动恰好一条 leg，from_id/to_id 对应实际顺序。可用空隙 >= duration_minutes + buffer_minutes；二者未知时 unknown，不默认为零。零交通仅适用于经确认同地或无需移动的情况，须有 evidence。
 
+不同 place_id 之间的 duration_minutes 和已提供的 distance_m 必须大于0，防止地图失败后把空值误填成0。availability=unavailable 为 fail，unknown 为 incomplete；省略该兼容字段时仍按时长、缓冲和证据检查，route_policy.require_availability=true时省略会使结果incomplete。步行路线必须提供 walking_m，且不同地点之间不能为0。
+
+requirements.route_policy 可要求首末地点、最低交通缓冲、路线距离和证据时效。start_place_id/end_place_id 分别与首个/最后活动的 place_id 比较；若行程需要从酒店、车站或集合点出发并返回，应把这些锚点建成首末活动，不只在说明文字中提及。minimum_buffer_minutes 是全局最低值，各leg仍可按场景使用更大缓冲。
+
+开启 require_distance 时，任一leg缺 distance_m 使结果 incomplete。设置 max_evidence_age_minutes 时必须同时给 checked_at；校验器用该leg引用来源中最新的 queried_at 计算数据年龄。过期或查询时间晚于校验时间均为 unknown，要求重新查询，不把旧路线直接判作现实可行。该检查只能证明查询时间新鲜，不能证明地图返回内容真实或适用于未来路况。
+
 活动 min_duration_minutes（可null）由上游给出合理下限，不是模型为通过校验随意设置。用户 daily_windows 限定活动及其后的交通占用须在该日允许时窗内。交通跨天时 walking_m 全部计入该 leg 的 day；若需精确按两天分摊，上游应拆分为中间交通活动，不能漏记。
 
 ## 开放、预约和固定时间

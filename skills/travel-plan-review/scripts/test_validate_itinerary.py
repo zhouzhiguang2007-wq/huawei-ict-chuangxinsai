@@ -62,6 +62,63 @@ class ValidationTests(unittest.TestCase):
         self.p['legs'][0]['buffer_minutes'] = None
         self.assertIn('transfer', self.rules('unknown'))
 
+    def test_zero_route_between_different_places(self):
+        self.p['legs'][0].update(duration_minutes=0, distance_m=0)
+        self.assertIn('route_duration', self.rules())
+        self.assertIn('route_distance', self.rules())
+
+    def test_zero_route_allowed_at_same_place(self):
+        self.p['activities'][1]['place_id'] = 'a'
+        self.p['legs'][0].update(duration_minutes=0, distance_m=0)
+        result = validate(self.p)
+        self.assertNotIn('route_duration', self.rules(result=result))
+        self.assertNotIn('route_distance', self.rules(result=result))
+
+    def test_route_availability(self):
+        self.p['legs'][0]['availability'] = 'unavailable'
+        self.assertIn('route_availability', self.rules())
+        self.p['legs'][0]['availability'] = 'unknown'
+        self.assertIn('route_availability', self.rules('unknown'))
+
+    def test_required_route_availability(self):
+        self.p['requirements']['route_policy'] = {'require_availability': True}
+        self.assertIn('route_availability', self.rules('unknown'))
+        self.p['legs'][0]['availability'] = 'available'
+        self.assertEqual(validate(self.p)['status'], 'pass')
+
+    def test_required_route_distance(self):
+        self.p['requirements']['route_policy'] = {'require_distance': True}
+        self.assertIn('route_distance', self.rules('unknown'))
+        self.p['legs'][0]['distance_m'] = 1200
+        self.assertEqual(validate(self.p)['status'], 'pass')
+
+    def test_minimum_route_buffer(self):
+        self.p['requirements']['route_policy'] = {'minimum_buffer_minutes': 15}
+        self.assertIn('route_buffer', self.rules())
+
+    def test_stale_route_evidence(self):
+        self.p['requirements']['route_policy'] = {
+            'checked_at': '2026-10-19T14:00:00+08:00',
+            'max_evidence_age_minutes': 60
+        }
+        self.assertIn('route_freshness', self.rules('unknown'))
+
+    def test_route_anchors(self):
+        self.p['requirements']['route_policy'] = {
+            'start_place_id': 'hotel',
+            'end_place_id': 'station'
+        }
+        self.assertIn('route_start_anchor', self.rules())
+        self.assertIn('route_end_anchor', self.rules())
+
+    def test_walk_route_requires_walking_distance(self):
+        self.p['legs'][0].update(mode='walk', walking_m=None)
+        self.assertIn('walk_distance', self.rules('unknown'))
+
+    def test_route_age_requires_check_time(self):
+        self.p['requirements']['route_policy'] = {'max_evidence_age_minutes': 30}
+        self.assertEqual(validate(self.p)['status'], 'invalid')
+
     def test_midnight(self):
         self.p['activities'] = [activity('a','2026-11-06T23:30:00+08:00','2026-11-07T00:30:00+08:00')]
         self.p['activities'][0]['opening']['applicable'] = False

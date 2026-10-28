@@ -97,6 +97,21 @@ def schema(plan):
     if modes is not None:
         for mode in array(modes, 'allowed_transport_modes'):
             text(mode, 'transport mode')
+    route_policy = req.get('route_policy')
+    if route_policy is not None:
+        if not isinstance(route_policy, dict):
+            raise ValueError('route_policy must be an object or null')
+        for field in ('start_place_id', 'end_place_id'):
+            if route_policy.get(field) is not None:
+                text(route_policy[field], 'route policy ' + field)
+        number(route_policy.get('minimum_buffer_minutes'), 'minimum route buffer', True)
+        number(route_policy.get('max_evidence_age_minutes'), 'maximum route evidence age', True)
+        boolean(route_policy.get('require_distance', False), 'require route distance')
+        boolean(route_policy.get('require_availability', False), 'require route availability')
+        if route_policy.get('checked_at') is not None:
+            moment(route_policy['checked_at'])
+        if route_policy.get('max_evidence_age_minutes') is not None and route_policy.get('checked_at') is None:
+            raise ValueError('route_policy.checked_at is required when max_evidence_age_minutes is set')
     bounds = req['daily_windows']
     if not isinstance(bounds, dict):
         raise ValueError('daily_windows must be an object')
@@ -157,6 +172,9 @@ def schema(plan):
             raise ValueError('leg day must match origin activity day')
         for field in ('duration_minutes', 'buffer_minutes', 'walking_m'):
             number(leg[field], field, True)
+        number(leg.get('distance_m'), 'route distance', True)
+        if leg.get('availability') is not None and leg['availability'] not in ('available', 'unavailable', 'unknown'):
+            raise ValueError('invalid route availability')
         text(leg['mode'], 'mode')
         evidence(leg)
     for deadline in array(req['deadlines'], 'deadlines'):
@@ -199,6 +217,8 @@ def validate(plan):
         report['errors'] = [str(exc)]
         return report
     req, acts = plan['requirements'], plan['activities']
+    route_policy = req.get('route_policy') or {}
+    source_times = {source['id']: moment(source['queried_at']) for source in plan['sources']}
 
     def add(rule, status, message, ids=None, item=None):
         refs = item['evidence']['source_ids'] if item is not None else []
@@ -216,6 +236,12 @@ def validate(plan):
         add(rule, 'pass' if okay else 'fail', message, ids, item)
 
     walking = {}
+    if route_policy.get('start_place_id') is not None:
+        test('route_start_anchor', acts[0]['place_id'] == route_policy['start_place_id'],
+             '首个活动地点须与指定出发锚点一致', [acts[0]['id']])
+    if route_policy.get('end_place_id') is not None:
+        test('route_end_anchor', acts[-1]['place_id'] == route_policy['end_place_id'],
+             '最后活动地点须与指定返程锚点一致', [acts[-1]['id']])
     for a in acts:
         aid = [a['id']]
         start, end = moment(a['start']), moment(a['end'])
@@ -256,10 +282,50 @@ def validate(plan):
     for i, leg in enumerate(plan['legs']):
         a, b = acts[i:i+2]
         ids = [a['id'], b['id']]
+        different_places = a['place_id'] != b['place_id']
         gap = (moment(b['start'])-moment(a['end'])).total_seconds()/60
         test('overlap', gap >= 0, f'活动间空隙{gap:g}分钟', ids)
         evid(leg, '交通 ' + ' -> '.join(ids), ids)
         duration, buffer = leg['duration_minutes'], leg['buffer_minutes']
+        availability = leg.get('availability')
+        if availability is not None:
+            state = 'pass' if availability == 'available' else 'fail' if availability == 'unavailable' else 'unknown'
+            add('route_availability', state, '路线必须确认可用', ids, leg)
+        elif route_policy.get('require_availability', False):
+            add('route_availability', 'unknown', '路线可用性未知', ids, leg)
+        if duration is not None:
+            test('route_duration', not different_places or duration > 0,
+                 '不同地点之间的交通时长必须大于0分钟', ids, leg)
+        distance = leg.get('distance_m')
+        if distance is None:
+            if route_policy.get('require_distance', False):
+                add('route_distance', 'unknown', '路线距离未知', ids, leg)
+        else:
+            test('route_distance', not different_places or distance > 0,
+                 '不同地点之间的路线距离必须大于0米', ids, leg)
+        if leg['mode'] == 'walk':
+            if leg['walking_m'] is None:
+                add('walk_distance', 'unknown', '步行路线缺少步行距离', ids, leg)
+            else:
+                test('walk_distance', not different_places or leg['walking_m'] > 0,
+                     '不同地点之间的步行距离必须大于0米', ids, leg)
+        minimum_buffer = route_policy.get('minimum_buffer_minutes')
+        if minimum_buffer is not None and buffer is not None:
+            test('route_buffer', buffer >= minimum_buffer,
+                 f'交通缓冲{buffer}分钟，最低要求{minimum_buffer}分钟', ids, leg)
+        max_age = route_policy.get('max_evidence_age_minutes')
+        if max_age is not None and leg['evidence']['status'] != 'unknown':
+            checked_at = moment(route_policy['checked_at'])
+            queried = [source_times[ref] for ref in leg['evidence']['source_ids']]
+            latest = max(queried)
+            age = (checked_at-latest).total_seconds()/60
+            if age < 0:
+                add('route_freshness', 'unknown', '路线查询时间晚于校验时间，请核对系统时间', ids, leg)
+            elif age > max_age:
+                add('route_freshness', 'unknown',
+                    f'路线数据已查询{age:g}分钟，超过{max_age}分钟有效期，需重新查询', ids, leg)
+            else:
+                add('route_freshness', 'pass', f'路线数据年龄{age:g}分钟，在有效期内', ids, leg)
         if duration is None or buffer is None:
             add('transfer', 'unknown', '交通时长或缓冲未知', ids, leg)
         else:
@@ -393,7 +459,30 @@ def review(payload):
     return output
 
 
-def main():
+def main(args):
+    """AgentArts entry point: plan_json/candidate_json -> status/report_json."""
+    try:
+        if not isinstance(args, dict):
+            raise ValueError('args must be an object')
+        raw_plan = args.get('plan_json')
+        if not isinstance(raw_plan, str) or not raw_plan.strip():
+            raise ValueError('plan_json must be a nonempty JSON string')
+        payload = {'plan': json.loads(raw_plan)}
+        raw_candidate = args.get('candidate_json')
+        if raw_candidate not in (None, ''):
+            if not isinstance(raw_candidate, str):
+                raise ValueError('candidate_json must be a JSON string or empty')
+            payload['candidate'] = json.loads(raw_candidate)
+        result = review(payload)
+    except (TypeError, ValueError) as exc:
+        result = {'status': 'invalid', 'errors': [str(exc)]}
+    return {
+        'status': result['status'],
+        'report_json': json.dumps(result, ensure_ascii=False, separators=(',', ':'), allow_nan=False)
+    }
+
+
+def _cli():
     try:
         if len(sys.argv) > 2:
             raise ValueError('usage: validate_itinerary.py [input.json]')
@@ -406,4 +495,4 @@ def main():
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    sys.exit(_cli())
