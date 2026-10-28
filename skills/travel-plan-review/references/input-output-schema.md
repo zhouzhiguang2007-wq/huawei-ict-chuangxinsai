@@ -87,3 +87,5 @@ evidence={status,source_ids}，status=verified/estimated/unknown，source_ids引
 ## 行为联调
 
 在宿主使用人工地点和模拟资料检查：未知交通应补查或incomplete；没有执行工具不能声称程序通过；不定位测试者；固定活动变化待确认；历史记录不改写；超过两轮修正仍不可行应停止并给出取舍。自动测试只验证脚本逻辑，不替代模型和工具联调。
+
+额外做分类联调：给出一份同时包含确定时间重叠、未知酒店入住政策和可选游览时长建议的行程。宿主必须分别输出 `confirmed_conflict`、`missing_data`、`soft_suggestion`，不得汇总为“3项漏洞”；酒店政策未查证前不得判定冲突，建议游览时长不得进入 `issues`。JSON仍以脚本的 `issues`、`missing_data` 为事实底座，解释层不得改写其状态。
