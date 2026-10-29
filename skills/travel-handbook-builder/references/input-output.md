@@ -39,7 +39,7 @@
 - 每站：`id`（跨全程唯一）、`name`、`kind`、`time`、`description`、`transport_note`、`booking_note`、`source_url`、`latitude`、`longitude`、`coordinate_system`、`coordinate_kind`、`coordinate_source_url`。有经纬度时，三项坐标说明都必填；例如坐标系是 `GCJ-02`，点位性质是“景区入口”。
 - 美食项：`name`、`area`、`description`、`price_note`、`source_url`、`status`。候选餐厅不会自动加入每日行程或位置示意。
 - 景点卡：`id`、`name`、`description`、`source_url`、`photo`。未提供 `places` 时，从每日站点去重生成简卡。
-- `photo`：`path`、`reuse_allowed`（布尔）、`credit`、`source_url`、`note`。只有 `reuse_allowed: true` 且图片位于 JSON 文件所在目录下时，脚本才会复制图片；否则只显示文字与来源链接。公开分享前仍需由使用者确认该许可适用范围。
+- `photo`：`path`、`reuse_allowed`（布尔）、`rights_note`、`credit`、`source_url`、`note`。`reuse_allowed: true` 时须写明许可依据（例如“用户本人拍摄并同意本次分享”），且图片须位于 JSON 文件所在目录下，脚本才会复制；否则只显示文字与来源链接。公开分享前仍需由使用者确认该许可适用范围。
 
 来源 URL 只接收 `https://`。页面对文字做转义，避免输入内容变成 HTML 脚本。输入和输出目录不要放访问令牌、证件号码或未获同意公开的订单内容。
 

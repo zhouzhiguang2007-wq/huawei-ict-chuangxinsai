@@ -123,6 +123,8 @@ def validate(plan: object) -> dict:
                 if not isinstance(photo, dict) or not isinstance(photo.get("reuse_allowed"), bool):
                     raise ValueError(f"{where}.photo.reuse_allowed 必须是布尔值")
                 checked_url(optional_text(photo, "source_url"), f"{where}.photo.source_url")
+                if photo["reuse_allowed"]:
+                    required_text(photo, "rights_note", f"{where}.photo")
     questions = plan.get("open_questions", [])
     if not isinstance(questions, list) or any(not isinstance(q, str) for q in questions):
         raise ValueError("open_questions 必须是文字数组")

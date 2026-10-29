@@ -63,12 +63,23 @@ class HandbookTests(unittest.TestCase):
             root = Path(raw)
             self.assertTrue(root.resolve().is_relative_to(TEST_ROOT))
             data = self.sample()
-            data["places"][0]["photo"].update({"path": "../other.png", "reuse_allowed": True})
+            data["places"][0]["photo"].update({"path": "../other.png", "reuse_allowed": True, "rights_note": "用户本人拍摄"})
             path = root / "plan.json"
             path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "相对路径"):
                 build(path, root / "out")
             self.assertFalse((root / "out/index.html").exists())
+
+    def test_shareable_photo_requires_rights_basis(self):
+        with tempfile.TemporaryDirectory(dir=TEST_ROOT) as raw:
+            root = Path(raw)
+            self.assertTrue(root.resolve().is_relative_to(TEST_ROOT))
+            data = self.sample()
+            data["places"][0]["photo"].update({"path": "photo.png", "reuse_allowed": True})
+            path = root / "plan.json"
+            path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "rights_note"):
+                build(path, root / "out")
 
 
 if __name__ == "__main__":
