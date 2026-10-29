@@ -1,0 +1,46 @@
+{
+  "$schema": "./plugin.schema.json",
+  "name": "travel-planner-plugin",
+  "version": "0.1.0",
+  "display_name": "旅行规划插件",
+  "description": "端到端旅游规划工作流：需求确认→资料核实→住宿→拍照→合成报告→复核→手册，含自建本地 RAG",
+  "entry_skill": "travel-planner-plugin",
+  "skills": [
+    "travel-planner-plugin",
+    "travel-requirement-analysis",
+    "multi-platform-travel-planner",
+    "travel-accommodation-advisor",
+    "x-xiake",
+    "travel-plan-review",
+    "travel-handbook-builder",
+    "travel-replanner",
+    "travel-time-pocket"
+  ],
+  "orchestration": {
+    "main_flow": [
+      "travel-requirement-analysis",
+      "multi-platform-travel-planner",
+      "travel-accommodation-advisor",
+      "x-xiake",
+      "multi-platform-travel-planner",
+      "travel-plan-review",
+      "travel-handbook-builder"
+    ],
+    "post_delivery": ["travel-replanner", "travel-time-pocket"]
+  },
+  "rag": {
+    "type": "local_vector",
+    "index_dir": "rag/index",
+    "build_script": "rag/build_index.py",
+    "retrieve_script": "rag/retrieve.py",
+    "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
+    "top_k": 5
+  },
+  "agent": "travel-planner",
+  "source": "GPT/team-travel-skills-2026-10-25",
+  "codearts_compat": {
+    "skill_frontmatter_fields": ["name", "description", "language", "allowed-tools"],
+    "agent_definition_format": "markdown",
+    "no_builtin_rag": true
+  }
+}
