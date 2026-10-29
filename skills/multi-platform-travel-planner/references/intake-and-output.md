@@ -25,15 +25,9 @@ Ask one question per turn in this order: destination, departure date, budget amo
 
 ## Planning units
 
-Each itinerary row should include:
+For a full trip, use one continuous daily route rather than one row per morning or afternoon. Read [complete-route and rich-content standard](route-timeline.md) before writing. Each day has named start/end anchors and ordered segments for travel, visits, meals, rest, check-in and return. Each segment records start/end time and place; a visit records actual play/visit minutes and at least two concrete things to see or do. Every change of place has a named transfer with duration and buffer. Keep unknown times and locations explicit so the route check can return `incomplete`.
 
-- Time block, allowing buffers.
-- Origin → destination sequence.
-- Recommended transport and approximate duration.
-- Activity and why it fits.
-- Nearby dish or food district.
-- Estimated cost per person and for the group when applicable.
-- Reservation, closure, weather, or accessibility note.
+After the timeline, explain why the route fits the user's interests, how much time each main attraction deserves, what to do there, where to eat, and what the nearby weather/closure substitute changes. Include per-person and group cost where applicable, plus reservation, access and source status. A single “上午景区、下午街区” row is an overview, not a usable itinerary.
 
 ## Mandatory transport section in a travel-plan report
 
@@ -54,7 +48,7 @@ Use for simple requests:
 
 1. Confirmed inputs, outstanding question, then feasibility once core fields are known.
 2. Transport query and connection table, including pending fields.
-3. Day-by-day route.
+3. Every day's full time sequence, visit durations, transfer legs, food/rest, and concrete highlights.
 4. Budget summary.
 5. Best time, practical cautions, and sources.
 
@@ -68,11 +62,11 @@ Use when the user asks to compare Douyin, Xiaohongshu, and browser results:
 4. Official verification and conflicts.
 5. Final retained/removed candidates with reasons.
 6. Transport query and connection table.
-7. Optimized itinerary and budget.
+7. Optimized continuous daily itinerary with attraction detail and budget.
 
 ### File-ready report
 
-Use descriptive headings, repeated table headers, currency units, page-friendly tables, a “交通查询与接驳” table, and a final “价格与开放信息核验日期” note. Put citations or source links near the relevant sections. Do not let decorative layout hide assumptions or estimates.
+Use descriptive headings, repeated table headers, currency units, page-friendly tables, a “交通查询与接驳” table, complete daily time sequences, and a final “价格与开放信息核验日期” note. Put citations or source links near the relevant sections. Do not let decorative layout hide assumptions, estimates, missing time segments or short attraction descriptions.
 
 ## Follow-up modifications
 

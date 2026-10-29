@@ -1,6 +1,6 @@
 ---
 name: multi-platform-travel-planner
-description: Research and build budget-conscious leisure itineraries by comparing travel content from Douyin, Xiaohongshu, maps, travel platforms, and the public web with official attraction, transit, railway, and weather sources. Use for requests about 旅游规划、自由行攻略、行程路线、经费预算、景点美食、最佳旅行时间、小时级天气、降雨空档、公共交通、火车票、地图路线、平台攻略对比、雨天备选 or a travel-plan report/file. Do not use for purchasing tickets, making reservations, or live bookings.
+description: Research and build budget-conscious, complete chronological travel routes with visit durations and detailed attraction experiences by comparing Douyin, Xiaohongshu, maps, travel platforms, and public web content with official attraction, transit, railway, and weather sources. Use for 旅游规划、自由行攻略、逐日完整线路、行程报告、经费预算、景点美食、最佳旅行时间、小时级天气、降雨空档、公共交通、火车票、地图路线、平台攻略对比 or 雨天备选. Do not use for purchasing tickets, making reservations, or live bookings.
 ---
 
 # Multi Platform Travel Planner
@@ -66,7 +66,9 @@ Keep items that are repeatedly recommended, fit the user's interests, and can be
 
 ## 4. Rebuild the route
 
-Group stops by neighborhood and transit corridor. Limit each full day to one or two major areas plus meals. Account for opening days, realistic visit times, queues, transfers, luggage, check-in, daylight, and the first/last day's reduced availability.
+Build **one continuous, chronological route for every confirmed travel date**, from that day's named departure point to its named overnight or return point. Group stops by neighborhood and transit corridor, but do not collapse a day into a list of attractions or a single morning/afternoon row. Calculate each stop's arrival, departure and actual visit minutes; insert the travel leg, queue/entry time, meals, rest, luggage and check-in between stops. The first day starts after the real arrival or meeting time; the last day must reach the departure point before its boarding/return deadline. Do not invent a time, place, duration or transport result to fill a gap.
+
+Before writing a full report, read [the complete-route and rich-content standard](references/route-timeline.md). Prepare its structured daily timeline and run `scripts/validate_route_timeline.py` on it. Fix `fail` results; disclose and resolve `incomplete` fields when possible. This structural check complements `travel-plan-review`'s time, opening, booking and budget checks; neither check verifies the truth of external sources.
 
 Prefer public transit and walking when the user prioritizes convenience or budget. Add taxis only where they materially reduce time or solve a late-night, luggage, accessibility, or remote-access problem. Include a bad-weather or closure substitute that remains near the same route cluster.
 
@@ -93,13 +95,13 @@ Use concise Chinese by default for Chinese requests. Deliver:
 3. Platform comparison: common recommendations, differences, and access limitations.
 4. Best travel time, including climate, crowds, and seasonal trade-offs. For near-term trips, include hourly outdoor windows, rain/heat risks, radar freshness, and a recheck time.
 5. A “交通查询与接驳” table covering arrival, departure, and meaningful local legs, including verification status and connection buffers even when some values remain unknown.
-6. A day-by-day table with time block, route, transport, food, estimated cost, and notes.
+6. A complete route for **each day**: ordered time segments from start to finish, named places and transfers, arrival/departure times, visit durations, meals, rest, and overnight/return endpoint. For every main attraction explain why it is in the route, at least two specific things to see or do there, and practical visit/booking or weather notes. Add a concise daily story after the timeline so the report is useful on site, not merely a timetable.
 7. A detailed budget table with transport subtotals, excluded charges, contingency, and total.
 8. Food priorities: favor dishes and food districts over unverifiable “must-visit” shops.
 9. Rain/closure alternatives and practical cautions.
 10. Sources placed close to the claims they support.
 
-For a short request, compress this structure without omitting budget feasibility, route logic, and source limitations. When the user requests a document, spreadsheet, or PDF, use the relevant artifact skill and preserve the same evidence and budget structure.
+For a short request, compress presentation but retain every day's complete route and explicit unknowns. When the user requests a document, spreadsheet, or PDF, use the relevant artifact skill and preserve the same route, evidence and budget structure.
 
 ## 7. Handle follow-ups incrementally
 
@@ -107,5 +109,5 @@ For requests such as “再便宜一点”, “不爬山”, “老人同行”,
 
 ## Completion criteria
 
-The result is complete only when it is geographically coherent, time-feasible, within the stated budget or explicitly flagged otherwise, transparent about inaccessible platforms, and supported by citations for volatile facts. Every travel-plan report must contain the transport table, or explicit pending fields when route inputs or live pages are unavailable. A near-term outdoor plan must also state the best usable weather window, its confidence and data time, and a nearby fallback. Any included railway schedule, fare, or availability must be verified directly against 12306 and carry a query timestamp; otherwise mark it unverified and omit the value.
+The result is complete only when every confirmed date has a start-to-end route with no unexplained long gap, broken location chain, omitted transfer or unaccounted visit time; each main stop has specific, source-grounded content; and the route is geographically coherent, time-feasible, within the stated budget or explicitly flagged otherwise. Run and report the route-completeness check for full reports; do not claim a pass if the script was not run or key data remain unknown. Every travel-plan report must contain the transport table, or explicit pending fields when route inputs or live pages are unavailable. A near-term outdoor plan must also state the best usable weather window, its confidence and data time, and a nearby fallback. Any included railway schedule, fare, or availability must be verified directly against 12306 and carry a query timestamp; otherwise mark it unverified and omit the value.
 
