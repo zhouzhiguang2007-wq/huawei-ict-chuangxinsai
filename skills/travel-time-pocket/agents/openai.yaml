@@ -1,6 +1,0 @@
-interface:
-  display_name: "碎片时间旅行推荐"
-  short_description: "根据真实路线和返回期限生成可验证、可按时完成的旅行微行程"
-  default_prompt: "使用 $travel-time-pocket 根据我的空闲时间和返回期限推荐一个来得及完成的小行程。"
-
-

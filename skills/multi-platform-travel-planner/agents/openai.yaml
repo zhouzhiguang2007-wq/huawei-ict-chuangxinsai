@@ -1,8 +1,0 @@
-interface:
-  display_name: "多平台旅游规划"
-  short_description: "逐轮确认需求，按时间推算完整旅游线路和游玩时长"
-  default_prompt: "使用 $multi-platform-travel-planner，先逐轮确认出发日期、预算口径、游玩天数和兴趣，再据真实来源生成每天从起点到终点的逐段时间线、景点体验、吃住行与预算，并校验线路完整性。"
-
-policy:
-  allow_implicit_invocation: true
-
