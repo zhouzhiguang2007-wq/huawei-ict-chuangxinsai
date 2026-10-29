@@ -30,8 +30,8 @@ def validate_route(payload):
       segment: id, kind, start, end; transfer has from_place_id,
         to_place_id, mode; other kinds have place_id. Visit also has
         visit_minutes and at least two distinct highlights.
-      max_unexplained_gap_minutes: optional nonnegative integer (default 45)
-      max_daily_unexplained_gap_minutes: optional nonnegative integer (default 60)
+      max_unexplained_gap_minutes: optional nonnegative integer (default 15)
+      max_daily_unexplained_gap_minutes: optional nonnegative integer (default 30)
 
     Null fact values produce incomplete. Malformed types/formats produce
     invalid. Known contradictions and omitted expected dates produce fail.
@@ -120,8 +120,8 @@ def validate_route(payload):
         report["errors"].append("daily_routes 须为数组")
         routes = []
 
-    max_gap = gap_limit("max_unexplained_gap_minutes", 45)
-    max_daily_gap = gap_limit("max_daily_unexplained_gap_minutes", 60)
+    max_gap = gap_limit("max_unexplained_gap_minutes", 15)
+    max_daily_gap = gap_limit("max_daily_unexplained_gap_minutes", 30)
     trip_start = day(trip.get("start_date"), "trip.start_date ")
     trip_end = day(trip.get("end_date"), "trip.end_date ")
     days = integer(trip.get("days"), "trip.days ", positive=True)

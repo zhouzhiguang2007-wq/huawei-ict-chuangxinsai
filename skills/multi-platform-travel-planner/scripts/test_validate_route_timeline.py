@@ -122,6 +122,10 @@ class RouteTimelineTests(unittest.TestCase):
         self.route["daily_routes"][0]["segments"][1]["start"] = "2026-10-30T09:15+08:00"
         self.assert_rule("fail", "unexplained_gap")
 
+    def test_twenty_minute_gap_needs_an_explicit_buffer(self):
+        self.route["daily_routes"][0]["segments"][1]["start"] = "2026-10-30T08:35+08:00"
+        self.assert_rule("fail", "unexplained_gap")
+
     def test_cumulative_small_gaps_fail(self):
         route = self.route["daily_routes"][0]
         segments = route["segments"]
