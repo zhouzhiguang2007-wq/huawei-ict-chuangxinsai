@@ -1,0 +1,7 @@
+interface:
+  display_name: "行迹手册生成器"
+  short_description: "把已复核行程做成离线可读的旅行手册"
+  default_prompt: "使用 $travel-handbook-builder，把已复核的旅游行程、来源和可分享照片制作成手机可读的旅行手册，并标出待核实项。"
+
+policy:
+  allow_implicit_invocation: true

@@ -8,8 +8,9 @@
 4. [`x-xiake`](x-xiake/SKILL.md)：有拍照需求时，核对真实地标照片，制作带完整人物、构图框和机位说明的指导图，并交回照片来源、合成标记和现场待核实项。
 5. `multi-platform-travel-planner`：把指导图及其来源与注意事项并入逐日吃住行、交通、天气、拍照与费用报告。
 6. [`travel-plan-review`](travel-plan-review/SKILL.md)：复核时间、路线、预算与来源后交付。
+7. [`travel-handbook-builder`](travel-handbook-builder/SKILL.md)：需要手机端手册时，把复核后的行程做成离线可打开的概览、每日路线、美食与景点页面。
 
-交付后，行程受扰动用 [`travel-replanner`](travel-replanner/SKILL.md) 调整；临时空档且原行程不冲突时用 [`travel-time-pocket`](travel-time-pocket/SKILL.md) 推荐可按时返回的小活动。详细的输入、输出和跳过条件见[调用顺序说明](multi-platform-travel-planner/references/workflow-orchestration.md)。
+交付后，行程受扰动用 [`travel-replanner`](travel-replanner/SKILL.md) 调整，复核后重新生成手册；临时空档且原行程不冲突时用 [`travel-time-pocket`](travel-time-pocket/SKILL.md) 推荐可按时返回的小活动。详细的输入、输出和跳过条件见[调用顺序说明](multi-platform-travel-planner/references/workflow-orchestration.md)。
 
 ## 下载与使用
 
