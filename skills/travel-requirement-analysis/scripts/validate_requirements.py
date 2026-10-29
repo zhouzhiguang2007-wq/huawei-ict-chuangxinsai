@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -14,6 +15,8 @@ from typing import Any, Dict, List, Optional
 ALLOWED_TRANSPORT = {"walk", "transit", "drive", "bike", "mixed", "unspecified"}
 ALLOWED_PACE = {"relaxed", "balanced", "intensive", "unspecified"}
 ALLOWED_BUDGET_SCOPE = {"total_trip", "per_person", "per_day", "unspecified"}
+ALLOWED_LOCATION_STATUS = {"unknown", "ambiguous", "confirmed"}
+ALLOWED_DEPARTURE_STATUS = {"unknown", "window", "flexible"}
 
 
 def _parse_date(value: Any, field: str, errors: List[str]) -> Optional[date]:
@@ -48,6 +51,9 @@ def validate_requirements(data: Any) -> Dict[str, Any]:
     budget = data.get("budget")
     preferences = data.get("preferences")
     task_scope = data.get("task_scope", "full_trip")
+    time_plan_required = data.get("time_plan_required", False)
+    if not isinstance(time_plan_required, bool):
+        errors.append("time_plan_required must be a boolean")
 
     if not isinstance(destination, dict):
         errors.append("destination must be an object")
@@ -76,6 +82,28 @@ def validate_requirements(data: Any) -> Dict[str, Any]:
             errors.append("dates.end_date must not be earlier than dates.start_date")
         elif isinstance(days, int) and not isinstance(days, bool) and days != calendar_days:
             errors.append("dates.days conflicts with inclusive start/end dates")
+
+    departure_availability = dates.get("departure_availability")
+    if departure_availability is not None and not isinstance(departure_availability, dict):
+        errors.append("dates.departure_availability must be an object or null")
+    elif isinstance(departure_availability, dict):
+        availability_status = departure_availability.get("status", "unknown")
+        if availability_status not in ALLOWED_DEPARTURE_STATUS:
+            errors.append("dates.departure_availability.status is not supported")
+        bounds = []
+        for key in ("earliest", "latest"):
+            value = departure_availability.get(key)
+            if value is not None:
+                if not isinstance(value, str) or not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
+                    errors.append(f"dates.departure_availability.{key} must use HH:MM or null")
+                else:
+                    bounds.append(value)
+        if availability_status == "window" and not bounds:
+            errors.append("dates.departure_availability.window needs a time bound")
+        if availability_status in {"unknown", "flexible"} and bounds:
+            errors.append("dates.departure_availability time bounds conflict with status")
+        if len(bounds) == 2 and bounds[0] > bounds[1]:
+            errors.append("dates.departure_availability earliest must not exceed latest")
 
     if travelers is not None:
         if not isinstance(travelers, dict):
@@ -117,8 +145,36 @@ def validate_requirements(data: Any) -> Dict[str, Any]:
     unknown = data.get("unknown_fields", [])
     if not isinstance(unknown, list) or any(not isinstance(item, str) for item in unknown):
         errors.append("unknown_fields must be an array of strings")
+    elif task_scope == "full_trip":
+        missing.extend(field for field in unknown if field in {
+            "departure_location.detail", "return_location.detail",
+            "departure_location.campus", "return_location.campus",  # older payloads
+        })
+
+    location_resolution = data.get("location_resolution")
+    if location_resolution is not None:
+        if not isinstance(location_resolution, dict):
+            errors.append("location_resolution must be an object or null")
+        else:
+            location_status = location_resolution.get("status", "unknown")
+            if location_status not in ALLOWED_LOCATION_STATUS:
+                errors.append("location_resolution.status is not supported")
+            elif location_status == "ambiguous" and task_scope == "full_trip":
+                ambiguous_fields = location_resolution.get("ambiguous_fields", [])
+                if not isinstance(ambiguous_fields, list) or any(not isinstance(item, str) for item in ambiguous_fields):
+                    errors.append("location_resolution.ambiguous_fields must be an array of strings")
+                else:
+                    missing.extend(ambiguous_fields or ["location_resolution"])
+
+    departure_time_unknown = departure_availability is None or (
+        isinstance(departure_availability, dict) and departure_availability.get("status", "unknown") == "unknown"
+    )
+    if departure_time_unknown and (data.get("departure_location") or time_plan_required):
+        warnings.append("departure availability is unknown; exact outbound timing cannot be finalized")
 
     if task_scope == "full_trip":
+        if time_plan_required and departure_time_unknown:
+            missing.append("dates.departure_availability")
         if travelers is None or (isinstance(travelers, dict) and travelers.get("total") is None):
             missing.append("travelers.total")
         if budget is None or (isinstance(budget, dict) and budget.get("amount") is None and not budget.get("no_limit")):

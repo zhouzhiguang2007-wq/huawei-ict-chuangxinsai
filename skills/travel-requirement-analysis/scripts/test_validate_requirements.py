@@ -75,6 +75,75 @@ class ValidateRequirementsTest(unittest.TestCase):
         result = validate_requirements(request)
         self.assertEqual(result["missing_fields"], ["dates.start_date"])
 
+    def test_ambiguous_origin_blocks_door_to_door_plan(self):
+        request = complete_request()
+        request["departure_location"] = "福建农林大学"
+        request["location_resolution"] = {
+            "status": "ambiguous",
+            "departure_poi_id": None,
+            "return_poi_id": None,
+            "ambiguous_fields": ["departure_location.detail"],
+        }
+        result = validate_requirements(request)
+        self.assertTrue(result["valid"])
+        self.assertFalse(result["ready"])
+        self.assertIn("departure_location.detail", result["missing_fields"])
+
+        request["departure_location"] = "用户确认的具体校区"
+        request["location_resolution"] = {
+            "status": "confirmed",
+            "departure_poi_id": "test-poi",
+            "return_poi_id": None,
+            "ambiguous_fields": [],
+        }
+        request["dates"]["departure_availability"] = {"status": "flexible", "earliest": None, "latest": None}
+        self.assertTrue(validate_requirements(request)["ready"])
+
+    def test_ambiguous_return_branch_is_generic(self):
+        request = complete_request()
+        request["return_location"] = "某连锁酒店"
+        request["location_resolution"] = {
+            "status": "ambiguous",
+            "departure_poi_id": None,
+            "return_poi_id": None,
+            "ambiguous_fields": ["return_location.detail"],
+        }
+        result = validate_requirements(request)
+        self.assertTrue(result["valid"])
+        self.assertFalse(result["ready"])
+        self.assertIn("return_location.detail", result["missing_fields"])
+
+    def test_date_only_does_not_imply_all_day_departure(self):
+        request = complete_request()
+        request["departure_location"] = "用户确认的具体出发地"
+        request["dates"]["departure_availability"] = {"status": "unknown", "earliest": None, "latest": None}
+        result = validate_requirements(request)
+        self.assertTrue(result["valid"])
+        self.assertTrue(result["ready"])
+        self.assertTrue(any("departure availability" in warning for warning in result["warnings"]))
+
+        request["time_plan_required"] = True
+        result = validate_requirements(request)
+        self.assertFalse(result["ready"])
+        self.assertIn("dates.departure_availability", result["missing_fields"])
+
+        request["dates"]["departure_availability"] = {"status": "window", "earliest": "13:00", "latest": None}
+        self.assertTrue(validate_requirements(request)["ready"])
+        request["dates"]["departure_availability"] = {"status": "flexible", "earliest": None, "latest": None}
+        self.assertTrue(validate_requirements(request)["ready"])
+
+    def test_inspiration_request_does_not_require_departure_time(self):
+        request = complete_request()
+        request["departure_location"] = "某城市"
+        request["time_plan_required"] = False
+        self.assertTrue(validate_requirements(request)["ready"])
+
+    def test_departure_window_requires_valid_time(self):
+        request = complete_request()
+        request["departure_location"] = "用户确认的具体出发地"
+        request["dates"]["departure_availability"] = {"status": "window", "earliest": "25:00", "latest": None}
+        self.assertFalse(validate_requirements(request)["valid"])
+
 
 if __name__ == "__main__":
     unittest.main()

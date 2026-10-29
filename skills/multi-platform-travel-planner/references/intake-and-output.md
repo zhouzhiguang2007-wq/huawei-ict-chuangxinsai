@@ -12,7 +12,8 @@ Use this reference for incomplete prompts, complex constraints, follow-up change
 | Duration | Yes | Ask if absent |
 | Party size | Yes for group cost/rooms | Ask if absent |
 | Intercity transport included | Yes for a capped total | Ask if the answer changes affordability |
-| Arrival/departure times | Needed for first/last day boundaries | Use confirmed services; otherwise ask when they change the feasible route, or mark the draft incomplete |
+| Earliest feasible outbound departure or departure window | When planning a specific outbound train or leave-home time | Ask; a travel date alone does not mean the traveler is free all day |
+| Arrival/return times | Needed for first/last day boundaries | Use confirmed services; otherwise ask when they change the feasible route, or mark the draft incomplete |
 | Origin city and actual start point | Yes for a complete door-to-door route | Ask after core fields if not supplied or derivable from confirmed transport |
 | End point or return service | Yes for a complete route | Ask after core fields if not supplied or derivable from confirmed transport |
 | Interests | Confirm after core fields | Derive only a tentative hypothesis from what the user said, then ask |
@@ -22,7 +23,7 @@ Use this reference for incomplete prompts, complex constraints, follow-up change
 | Sources/platforms | No | Public web plus official sources; add named platforms |
 | Output | No | Concise report in chat |
 
-Ask one question per turn in this order: destination, departure date, budget amount/scope, days, group size, then preference confirmation. After these, ask for an unknown start/return point or fixed service only if the route cannot be closed from confirmed inputs. Skip known fields and accept volunteered answers to future questions. A preference inferred from “美食为主” or “想拍照” is a proposal, not an approved constraint. While awaiting an answer, research stable facts and photos, but leave the itinerary and computed package price pending. If the user wants an explicit demonstration, use a visible “假设情境” label and do not present it as the user's actual trip.
+Ask one question per turn in this order: destination, departure date, budget amount/scope, days, group size, then preference confirmation. After these, ask for the next material missing start/return point, fixed service or feasible departure window when needed to close a precise route. Skip known fields and accept volunteered answers to future questions. A preference inferred from “美食为主” or “想拍照” is a proposal, not an approved constraint. While awaiting an answer, research stable facts and photos, but leave the itinerary and computed package price pending. If the user wants an explicit demonstration, use a visible “假设情境” label and do not present it as the user's actual trip.
 
 ## Planning units
 
@@ -30,9 +31,9 @@ For a full trip, use one continuous daily route rather than one row per morning 
 
 After the timeline, explain why the route fits the user's interests, how much time each main attraction deserves, what to do there, where to eat, and what the nearby weather/closure substitute changes. Include per-person and group cost where applicable, plus reservation, access and source status. A single “上午景区、下午街区” row is an overview, not a usable itinerary.
 
-## Mandatory transport section in a travel-plan report
+## Complete transport record for internal plans and detailed reports
 
-Include “交通查询与接驳” in every generated itinerary or travel-plan file, including short answers. Use one row per meaningful leg; cover origin access when known, intercity travel, airport/station transfer, destination arrival, daily local moves, and the return leg when within scope.
+Keep “交通查询与接驳” in the internal plan and every detailed travel-plan file. Use one row per meaningful leg; cover origin access when known, intercity travel, airport/station transfer, destination arrival, daily local moves, and the return leg when within scope. In the default chat answer, show only connections that affect the traveler's immediate decision, in short bullets rather than a wide table.
 
 | Date/leg | Exact endpoints | Mode and service | Depart–arrive / duration | Transfers and walk | Fare and inclusion | Source and query time | Buffer / status |
 |---|---|---|---|---|---|---|---|
@@ -43,15 +44,9 @@ If the origin, travel date, exact terminal, live page, or price is missing, writ
 
 ## Output templates
 
-### Fast answer
+### Default traveler answer
 
-Use for simple requests:
-
-1. Confirmed inputs, outstanding question, then feasibility once core fields are known.
-2. Transport query and connection table, including pending fields.
-3. Every day's full time sequence, visit durations, transfer legs, food/rest, and concrete highlights.
-4. Budget summary.
-5. Best time, practical cautions, and sources.
+Use for ordinary travel requests, including complete multi-day trips. Build and validate the full time sequence internally, then show a screen-sized first answer: one-line conclusion; one short route line per day; compact confirmed/estimated/unknown budget; up to three decision-critical checks; one next action. No Markdown table or raw JSON. Give the traveler a clear option to see the full route, visit durations, transfer legs, food/rest, prices and sources. If core inputs are missing, ask the single most important question instead of generating a long placeholder report.
 
 ### Comparison report
 
@@ -65,9 +60,9 @@ Use when the user asks to compare Douyin, Xiaohongshu, and browser results:
 6. Transport query and connection table.
 7. Optimized continuous daily itinerary with attraction detail and budget.
 
-### File-ready report
+### Detailed or file-ready report
 
-Use descriptive headings, repeated table headers, currency units, page-friendly tables, a “交通查询与接驳” table, complete daily time sequences, and a final “价格与开放信息核验日期” note. Put citations or source links near the relevant sections. Do not let decorative layout hide assumptions, estimates, missing time segments or short attraction descriptions.
+When explicitly requested, use descriptive headings, repeated table headers, currency units, page-friendly tables, a “交通查询与接驳” table, complete daily time sequences, and a final “价格与开放信息核验日期” note. Put citations or source links near the relevant sections. Do not let decorative layout hide assumptions, estimates, missing time segments or short attraction descriptions.
 
 ## Follow-up modifications
 

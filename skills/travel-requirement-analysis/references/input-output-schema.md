@@ -44,7 +44,8 @@
     "end_date": "2026-11-03",
     "days": 3,
     "flexible": false,
-    "time_windows": []
+    "time_windows": [],
+    "departure_availability": {"status": "unknown", "earliest": null, "latest": null}
   },
   "travelers": {
     "total": 3,
@@ -67,8 +68,15 @@
     "accommodation": []
   },
   "constraints": ["儿童不适合连续长距离步行"],
+  "time_plan_required": false,
   "departure_location": null,
   "return_location": null,
+  "location_resolution": {
+    "status": "unknown",
+    "departure_poi_id": null,
+    "return_poi_id": null,
+    "ambiguous_fields": []
+  },
   "unknown_fields": [],
   "derived_fields": [],
   "source_notes": []
@@ -76,6 +84,12 @@
 ```
 
 未知对象字段使用 `null`，未知列表使用 `[]`。不要使用“随便”“正常”等文本代替未知值。
+
+`location_resolution.status` 可为 `unknown`、`ambiguous`、`confirmed`。当用户给出的出发地对应多个实际地点，而且这些差异影响门到门规划时，`departure_location` 保留原话，`status` 设为 `ambiguous`，`departure_poi_id` 保持 `null`，并在 `location_resolution.ambiguous_fields` 与 `unknown_fields` 中加入 `departure_location.detail`。地图候选只是供用户选择，不能自动将首条或最热门地点写成 `confirmed`。用户确认后记录具体名称；查到地图 POI ID 时再填入对应字段。返回地有歧义时，在两个列表中加入 `return_location.detail`。适用于校区、院区、分店、同名地点、站点和入口；对不影响路线的细节不额外追问。
+
+`dates.departure_availability` 记录用户在出发日**何时有空出门**，与 `dates.start_date` 分开。`status=unknown` 表示只知道日期，`earliest/latest` 为 `null`，并在 `unknown_fields` 加入 `dates.departure_availability`；`status=window` 表示用户给出可出发时段，边界用当地 `HH:MM`，至少有一个边界；`status=flexible` 仅在用户明确说当天时间灵活时使用。未问到时间不能把 `00:00–23:59` 当默认窗口。对于需要安排具体出门、赶车或跨城交通的完整行程，`unknown` 时先追问“当天最早几点可以出发，或大概哪个时段方便？”，不得输出精确出门时刻。
+
+`time_plan_required` 为布尔值，仅在当前任务要求生成**精确出发、赶车或抵达时刻**时设为 `true`。普通目的地探索、粗略路线或尚在查资料的阶段为 `false`。未知出发时段在后一种情况下不阻止查询与暂定规划，但最终答复不得写精确出门时刻或保证赶上某班车。
 
 ## 规范化规则
 
@@ -97,16 +111,20 @@
 4. `dates.days`；
 5. `travelers.total`（涉及团费或住宿时）；
 6. 不存在日期、人数或预算的未解决冲突。
+7. 若本次要计算从指定地点到车站的接驳、费用或固定到达时间，`location_resolution.status` 不能为 `ambiguous`；应先确认影响结果的具体地点。
+8. 若 `time_plan_required=true`，`dates.departure_availability.status` 不能为 `unknown`；只提供出发日期不等于全天可出发。若仅要目的地建议或粗略规划，此项可未知，仍可进入资料查询。
 
 ## 逐轮提问协议
 
-完整规划每轮只输出一个 `question`，依序补齐：目的地 → 出发日期/日期窗口 → 大概预算及每人/全团口径 → 玩多少天 → 人数 → 兴趣与节奏。已知项直接跳过；用户在一次回答中提供多项时全部提取。允许日期范围，但不能凭当前日期自行选择某天；金额可为大概区间，但报告须说明按哪一端控制成本。用户说“旅游以拍照为主”等只可推断为待确认偏好，随后问“拍照是这次的重点吗？还想侧重美食或演出吗？”，得到确认后再进入正式路线。若用户明确要求只看一个假设案例，可输出标为“示例、待确认”的草案，不把它记为实际需求。
+完整规划每轮只输出一个 `question`，依序补齐：目的地 → 出发日期/日期窗口 → 大概预算及每人/全团口径 → 玩多少天 → 人数 → 需要精确跨城交通时的可出发时段 → 兴趣与节奏。已知项直接跳过；用户在一次回答中提供多项时全部提取。允许日期范围，但不能凭当前日期自行选择某天；金额可为大概区间，但报告须说明按哪一端控制成本。用户说“旅游以拍照为主”等只可推断为待确认偏好，随后问“拍照是这次的重点吗？还想侧重美食或演出吗？”，得到确认后再进入正式路线。若用户明确要求只看一个假设案例，可输出标为“示例、待确认”的草案，不把它记为实际需求。
 
 以下字段按任务条件决定是否关键：
 
 - 住宿与总价规划：需要旅行者数量和住宿晚数；
 - 严格预算校验：需要金额、币种和预算口径；
 - 从出发地计算城际交通：需要出发地；
+- 从可能对应多个地点的名称计算门到门接驳：需要用户确认影响路线的具体地点；地图搜索首条结果不算确认；
+- 安排具体出门时刻或城际交通：需要用户的可出发时段，或用户明确确认当天时间灵活；
 - 无障碍或特定群体规划：需要相关年龄、行动能力和硬约束。
 
 ## 完整输出示例

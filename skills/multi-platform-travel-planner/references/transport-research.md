@@ -10,11 +10,16 @@ Resolve the following before a live search when they materially affect the resul
 
 - Origin and destination, including the exact station, airport, terminal, attraction, or accommodation when known.
 - Travel date and preferred departure or arrival window.
+- Earliest feasible time the traveler can actually leave on the departure date, or explicit confirmation that the day is flexible. A date alone supplies no time window.
 - Party size, child/student/senior status only when relevant to an estimate, and luggage burden.
 - Mobility limits, transfer tolerance, maximum walking distance, and acceptable modes.
 - Whether the budget includes intercity travel and whether overnight travel is acceptable.
 
+If a named origin or return point maps to several real places, present distinct candidate names and addresses and ask the traveler to select the intended one when the choice changes the route, time, cost or a hard deadline. This applies to campuses, hospital sites, chain-store branches, same-name POIs, stations and entrances. A map's first result or popularity ranking is not user confirmation. Preserve the user's raw place name and the selected provider POI ID separately. If unresolved, leave the affected access route, earliest departure, access cost and arrival-by deadline unknown; any broader itinerary must be labeled provisional. Do not interrupt a city-level inspiration request for an immaterial entrance detail.
+
 Do not guess a railway date, city station, or airport when multiple choices would produce materially different results. A past or missing date cannot support a live booking claim: ask for a future date when essential, or use a clearly labeled illustrative date for a scenario and leave the actual itinerary unconfirmed. Prefer a named terminal over a city centroid.
+
+If departure availability is unknown, ask before recommending a specific outbound train or leave-home time. A map estimate from home to station can be calculated as a duration, but cannot establish that the traveler is free at 06:30 or any other chosen time.
 
 ## 2. Assign each source a role
 
@@ -116,7 +121,7 @@ For each travel block, state:
 6. Source link, query timestamp, and verification status.
 7. A nearby or same-corridor fallback when a service is disrupted.
 
-Every generated travel-plan report must contain this transport chain as a “交通查询与接驳” table, including origin access when known, outbound and return intercity legs when in scope, airport/station transfers, destination arrival, and consequential daily local legs. Keep unknown rows or cells marked “待查询/未核实”; never omit the section because live prices are unavailable. Show listed transport subtotal, excluded fees, and its relation to the overall trip budget without double counting.
+Keep this full transport chain in the internal plan and any detailed travel-plan report as a “交通查询与接驳” table, including origin access when known, outbound and return intercity legs when in scope, airport/station transfers, destination arrival, and consequential daily local legs. The default traveler-facing chat answer summarizes only the legs that affect the immediate decision. Keep unknown rows or cells in the full record marked “待查询/未核实”; never omit them because live prices are unavailable. Show listed transport subtotal, excluded fees, and its relation to the overall trip budget without double counting.
 
 Refresh live traffic shortly before departure. Refresh railway availability on 12306 before making a purchase decision, and never reuse an earlier trip's remaining-ticket result.
 
