@@ -12,8 +12,9 @@ Use this reference for incomplete prompts, complex constraints, follow-up change
 | Duration | Yes | Ask if absent |
 | Party size | Yes for group cost/rooms | Ask if absent |
 | Intercity transport included | Yes for a capped total | Ask if the answer changes affordability |
-| Arrival/departure times | When fixed by user | Keep unknown until transport is selected |
-| Origin city | No | Needed only for intercity fare calculation |
+| Arrival/departure times | Needed for first/last day boundaries | Use confirmed services; otherwise ask when they change the feasible route, or mark the draft incomplete |
+| Origin city and actual start point | Yes for a complete door-to-door route | Ask after core fields if not supplied or derivable from confirmed transport |
+| End point or return service | Yes for a complete route | Ask after core fields if not supplied or derivable from confirmed transport |
 | Interests | Confirm after core fields | Derive only a tentative hypothesis from what the user said, then ask |
 | Walking/mobility | Ask if group composition or activities make it material | Keep unknown; do not assume everyone can walk moderately |
 | Local transport | No | Compare available modes; do not record a preference without evidence |
@@ -21,7 +22,7 @@ Use this reference for incomplete prompts, complex constraints, follow-up change
 | Sources/platforms | No | Public web plus official sources; add named platforms |
 | Output | No | Concise report in chat |
 
-Ask one question per turn in this order: destination, departure date, budget amount/scope, days, group size, then preference confirmation. Skip known fields and accept volunteered answers to future questions. A preference inferred from “美食为主” or “想拍照” is a proposal, not an approved constraint. While awaiting an answer, research stable facts and photos, but leave the itinerary and computed package price pending. If the user wants an explicit demonstration, use a visible “假设情境” label and do not present it as the user's actual trip.
+Ask one question per turn in this order: destination, departure date, budget amount/scope, days, group size, then preference confirmation. After these, ask for an unknown start/return point or fixed service only if the route cannot be closed from confirmed inputs. Skip known fields and accept volunteered answers to future questions. A preference inferred from “美食为主” or “想拍照” is a proposal, not an approved constraint. While awaiting an answer, research stable facts and photos, but leave the itinerary and computed package price pending. If the user wants an explicit demonstration, use a visible “假设情境” label and do not present it as the user's actual trip.
 
 ## Planning units
 
