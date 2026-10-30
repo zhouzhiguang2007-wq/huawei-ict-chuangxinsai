@@ -1,6 +1,6 @@
 # 校验器集成与维护
 
-`scripts/_review_engine.py` 是项目现有 `skills/travel-plan-review/scripts/validate_itinerary.py` 的同步快照。它最初取自版本 d7ea9e8，当前仓库已同步加入路线可用性、距离、最低缓冲、首末锚点和证据时效检查。
+`scripts/_review_engine.py` 是项目现有 `skills/travel-plan-review/scripts/validate_itinerary.py` 的同步快照。它最初取自版本 d7ea9e8，当前仓库已同步加入路线可用性、距离、最低缓冲、首末锚点、证据时效和过去开始时间检查。`replan_guard.py` 仍负责识别实际进度与剩余活动；不能只靠计划时间推断活动已经完成。
 
 来源：https://github.com/zhouzhiguang2007-wq/huawei-ict-chuangxinsai/tree/d7ea9e8/skills/travel-plan-review
 

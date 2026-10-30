@@ -46,6 +46,30 @@ class ValidationTests(unittest.TestCase):
     def test_normal(self):
         self.assertEqual(validate(self.p)['status'], 'pass')
 
+    def test_past_start_on_departure_day(self):
+        result = validate(self.p, '2026-11-06T13:35:00+08:00')
+        self.assertEqual(result['status'], 'fail')
+        self.assertIn('past_start', self.rules(result=result))
+        overdue = [item for item in result['issues'] if item['rule'] == 'past_start']
+        self.assertEqual(len(overdue), 1)
+        self.assertEqual(overdue[0]['activity_ids'], ['a', 'b'])
+
+    def test_future_departure_is_not_past(self):
+        result = validate(self.p, '2026-11-05T13:35:00+08:00')
+        self.assertEqual(result['status'], 'pass')
+
+    def test_in_progress_activity_is_not_a_past_start(self):
+        self.p['activities'][0]['status'] = 'in_progress'
+        result = validate(self.p, '2026-11-06T09:30:00+08:00')
+        self.assertEqual(result['status'], 'pass')
+
+    def test_past_start_uses_actual_timezone_offset(self):
+        result = validate(self.p, '2026-11-06T05:30:00+00:00')
+        self.assertIn('past_start', self.rules(result=result))
+
+    def test_untrusted_naive_check_time_is_invalid(self):
+        self.assertEqual(validate(self.p, '2026-11-06T13:35:00')['status'], 'invalid')
+
     def test_overlap(self):
         self.p['activities'][1]['start'] = '2026-11-06T09:30:00+08:00'
         self.assertIn('overlap', self.rules())

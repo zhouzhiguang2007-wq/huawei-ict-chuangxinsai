@@ -17,7 +17,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 4. 有过夜 → **RAG** `"住宿比价 位置 房型 取消政策"` → `travel-accommodation-advisor`；当日游跳过
 5. 有拍照 → **RAG** `"拍照指导 机位 姿势 构图"` → `x-xiake`；不需要拍照时跳过
 6. 调用 `multi-platform-travel-planner` 合成逐日时间线+预算报告，运行 `scripts/validate_route_timeline.py`
-7. **RAG** `"复核规则 时间冲突 开放预约 预算"` → `travel-plan-review`；fail 退回对应环节修正再复核
+7. **RAG** `"复核规则 时间冲突 开放预约 预算"` → `travel-plan-review`；交付前使用宿主当前时间检查 `planned` 活动，若开始时间已过，先确认实际进度或最早可出发时间并重排，fail 退回对应环节修正再复核，不能标为可执行
 8. 需手册 → `travel-handbook-builder`；不需要交互手册时跳过
 
 ## 交付后分流

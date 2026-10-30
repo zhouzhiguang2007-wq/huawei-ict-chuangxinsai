@@ -6,13 +6,13 @@ Python 3.9+，无需第三方包。运行 `python scripts/validate_itinerary.py 
 
 宿主代码可导入 `validate_itinerary.validate(plan)` 做单份校验，或 `validate_itinerary.review(payload)` 同时校验原案和草案。AgentArts代码节点可直接使用 `validate_itinerary.py` 的 `main(args)`；同一文件仍可从命令行运行。文件不会自动注册为平台工具或地图MCP。
 
-AgentArts输入：`plan_json` 为完整plan对象序列化后的String；`candidate_json` 为可选修正草案String，未提供时留空。输出：`status` 为pass/incomplete/fail/invalid，`report_json` 为完整报告JSON字符串。路线时长、距离和可用性必须先由高德等已接入地图工具查询，再按下述leg结构传入。
+AgentArts输入：`plan_json` 为完整plan对象序列化后的String；`candidate_json` 为可选修正草案String，未提供时留空；`as_of` 可选，仅供可信服务端时钟或固定时间测试传入，格式为带时区的ISO时间。`main(args)` 和命令行在未传时自动使用宿主当前时间。直接调用 `review(payload)` 或 `validate(plan, as_of)` 时须显式传入可信 `as_of` 才会检查已过的计划开始时间；不要把游客文本作为时钟。输出：`status` 为pass/incomplete/fail/invalid，`report_json` 为完整报告JSON字符串。路线时长、距离和可用性必须先由高德等已接入地图工具查询，再按下述leg结构传入。
 
 命令行输出 JSON。原案 invalid 时退出码2，其他检查状态退出码0；必须读取 JSON 中的业务状态，不能将退出码0误认为行程pass。
 
 ## 输入结构
 
-顶层 `{"plan": 完整原案, "candidate": 完整草案或null}`。只检查时省略candidate。下面的字段除明确可null外均必需。可运行的完整人工样例位于 [examples/basic-plan.json](../examples/basic-plan.json)，不是酒店/景点实时报价或运营资料。
+顶层 `{"plan": 完整原案, "candidate": 完整草案或null, "as_of": 可信校验时刻}`。只检查时省略candidate。下面的字段除明确可null外均必需。可运行的完整人工样例位于 [examples/basic-plan.json](../examples/basic-plan.json)，不是酒店/景点实时报价或运营资料。回放历史样例时显式指定该样例适用的 `as_of`，避免拿今天的时钟误判历史计划。
 
 ### plan.requirements
 

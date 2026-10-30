@@ -3,7 +3,7 @@ import copy
 import json
 import re
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 
@@ -208,11 +208,12 @@ def finish(report):
     return report
 
 
-def validate(plan):
+def validate(plan, as_of=None):
     report = dict(status='invalid', checks=[], issues=[], missing_data=[], assumptions=[],
                   cost_summary={}, errors=[])
     try:
         schema(plan)
+        checked_at = moment(as_of) if as_of is not None else None
     except (KeyError, TypeError, ValueError, OverflowError) as exc:
         report['errors'] = [str(exc)]
         return report
@@ -236,6 +237,12 @@ def validate(plan):
         add(rule, 'pass' if okay else 'fail', message, ids, item)
 
     walking = {}
+    if checked_at is not None:
+        overdue = [a['id'] for a in acts
+                   if a['status'] == 'planned' and moment(a['start']) < checked_at]
+        if overdue:
+            add('past_start', 'fail',
+                '有尚未开始的活动早于校验时间；须确认实际进度或重新安排，不能标为可执行', overdue)
     if route_policy.get('start_place_id') is not None:
         test('route_start_anchor', acts[0]['place_id'] == route_policy['start_place_id'],
              '首个活动地点须与指定出发锚点一致', [acts[0]['id']])
@@ -385,14 +392,15 @@ def review(payload):
     if not isinstance(payload, dict) or 'plan' not in payload:
         return dict(status='invalid', errors=['input must contain plan'])
     original = payload['plan']
-    report = validate(original)
+    as_of = payload.get('as_of')
+    report = validate(original, as_of)
     output = dict(report, proposed_changes=[], requires_confirmation=False,
                   revised_itinerary=None, recheck_result=None,
                   sources=original.get('sources', []) if isinstance(original, dict) else [])
     candidate = payload.get('candidate')
     if candidate is None or report['status'] == 'invalid':
         return output
-    candidate_report = validate(candidate)
+    candidate_report = validate(candidate, as_of)
     if candidate_report['status'] == 'invalid':
         output['recheck_result'] = candidate_report
         return output
@@ -401,7 +409,7 @@ def review(payload):
     effective['requirements'] = copy.deepcopy(original['requirements'])
     effective['sources'] += [s for s in original['sources']
                             if s['id'] not in {x['id'] for x in effective['sources']}]
-    checked = validate(effective)
+    checked = validate(effective, as_of)
     changes, protections = [], []
 
     def changed(kind, ident, before, after, confirmation=False):
@@ -460,7 +468,7 @@ def review(payload):
 
 
 def main(args):
-    """AgentArts entry point: plan_json/candidate_json -> status/report_json."""
+    """Runtime entry point: use host time unless a trusted as_of is supplied."""
     try:
         if not isinstance(args, dict):
             raise ValueError('args must be an object')
@@ -468,6 +476,7 @@ def main(args):
         if not isinstance(raw_plan, str) or not raw_plan.strip():
             raise ValueError('plan_json must be a nonempty JSON string')
         payload = {'plan': json.loads(raw_plan)}
+        payload['as_of'] = args.get('as_of') or datetime.now(timezone.utc).isoformat()
         raw_candidate = args.get('candidate_json')
         if raw_candidate not in (None, ''):
             if not isinstance(raw_candidate, str):
@@ -487,7 +496,11 @@ def _cli():
         if len(sys.argv) > 2:
             raise ValueError('usage: validate_itinerary.py [input.json]')
         raw = Path(sys.argv[1]).read_text(encoding='utf-8-sig') if len(sys.argv) == 2 else sys.stdin.read()
-        result = review(json.loads(raw))
+        payload = json.loads(raw)
+        if not isinstance(payload, dict):
+            raise ValueError('input must be an object')
+        payload.setdefault('as_of', datetime.now(timezone.utc).isoformat())
+        result = review(payload)
     except (OSError, ValueError, TypeError, KeyError) as exc:
         result = dict(status='invalid', errors=[str(exc)])
     print(json.dumps(result, ensure_ascii=False, allow_nan=False))
