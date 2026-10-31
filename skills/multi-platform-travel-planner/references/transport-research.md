@@ -38,6 +38,14 @@ Search social platforms only for practical observations such as a confusing exit
 
 ## 3. Enforce the 12306 railway boundary
 
+### Automatic lookup gate
+
+Once the actual travel date, origin and destination are known, check both outbound and return railway legs **during this turn**, before choosing train-dependent activities or handing the result to the traveler. When a preferred time window is missing, query all-day options first, but ask the traveler for their available period before selecting a train or fixing the day's schedule. The user does not need to repeat a command to look up tickets. First inspect the tools available in the current runtime: use a browser/page-operation tool to open an official 12306 surface if available. An Amap MCP can resolve station access, but cannot verify railway trains, fares or seats. A repository Skill, RAG instruction, or open browser tab by itself does not grant the agent the ability to operate that page.
+
+For each leg, record `lookup_status` as `verified`, `no_result`, `blocked`, `tool_unavailable`, or `needs_station_clarification`, plus `queried_at`, official URL/surface and actual station pair when known. `verified` requires a successful official result for the requested date and station pair. `no_result` means the official search ran and returned no matching service; it is not the same as failure to access the page. If the page fails, retry at most once using another official 12306 surface or simplified station/date search, then stop and record the concrete reason. Never claim to have searched 12306 merely because a general web search returned its homepage or a snippet.
+
+If no official result is available, preserve the itinerary as provisional and leave the train-dependent departure/arrival, fare and seats unknown. A rough corridor duration may be shown only as an explicitly labeled planning estimate with its basis; never present it as a train time or use it to prove a connection. Do not tell the traveler only “请自行查询12306” while showing a precise unverified rail block. Give a single next action only when the agent truly lacks official lookup access or an essential station choice, and explain which missing fact prevents a final schedule.
+
 For every railway query:
 
 1. Use only an official `12306.cn`, `kyfw.12306.cn`, or `mobile.12306.cn` page or an explicitly verified official 12306 application surface.
@@ -56,7 +64,7 @@ Do not automate account registration, passenger identity entry, CAPTCHA solving,
 
 For mainland-China routes, prefer Amap as the primary estimate and use Baidu or Tencent Maps when a second estimate can expose POI ambiguity, station-exit differences, or live-traffic variation. Use Google Maps primarily for international trips or as a clearly labeled secondary reference.
 
-Use public browser route pages for map research in this workflow. Do not configure or call a provider API. Confirm that the resolved place is the intended station, airport terminal, or destination rather than a similarly named company or city centroid.
+Use an already connected and authorized Amap MCP for map research when available; otherwise use public browser route pages. Confirm that the resolved place is the intended station, airport terminal, or destination rather than a similarly named company or city centroid. Map results do not verify 12306 railway facts.
 
 Map providers use different coordinate systems and POI identifiers. Do not directly combine raw coordinates from Amap/Tencent, Baidu, and Google without a documented conversion. Prefer verified place names, provider POI IDs, station exits, and route-level distance/time results.
 
