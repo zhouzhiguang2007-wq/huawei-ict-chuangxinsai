@@ -7,6 +7,12 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 
 # 旅行规划插件（编排器）
 
+## 共享接口与偏好入口
+
+先读取[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。在需求分析前由可信宿主调用共享工具 `prepare`，取得本次 context 和偏好快照，向用户说明沿用偏好，再分发给下游。需求分析确认新条件后丢弃旧快照，用原始本次偏好重新 prepare。当前轮各模块复用同一快照。独立拍照、住宿、重排和空档请求同样走此入口。
+
+长期偏好保存由需求分析提供确认依据、可信宿主提交 `update`。本次日期、预算、人数和临时变化只更新本次需求。统一响应顶层 `ok` 只表示工具运行成功，行程通过与否读取 `data.result` 原始业务状态；完整安装及云端工具接入见共享接口。
+
 本 skill 是插件主入口，不直接实现业务，只负责按序调度子 skill 并在每步前置 RAG 检索。完整调用顺序与跳过条件见 `references/orchestration.md`。
 
 ## 调用顺序

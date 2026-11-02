@@ -212,7 +212,7 @@ class RouteTimelineTests(unittest.TestCase):
     def test_cli_reads_stdin(self):
         script = Path(__file__).with_name("validate_route_timeline.py")
         result = subprocess.run([sys.executable, str(script)], input=json.dumps(self.route),
-                                text=True, capture_output=True, check=False)
+                                text=True, encoding='utf-8', capture_output=True, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["status"], "pass")
 
