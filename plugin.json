@@ -1,7 +1,7 @@
 {
   "$schema": "./plugin.schema.json",
   "name": "travel-planner-plugin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "display_name": "旅行规划插件",
   "description": "端到端旅游规划工作流：需求确认→资料核实→住宿→拍照→合成报告→复核→手册，含自建本地 RAG",
   "entry_skill": "travel-planner-plugin",
@@ -37,6 +37,18 @@
     "top_k": 5
   },
   "agent": "travel-planner",
+  "shared_tools": {
+    "contract_version": "1.0",
+    "module": "travel_shared",
+    "contract_document": "docs/shared-interface.md",
+    "openapi": "contracts/tools.openapi.json",
+    "storage": "sqlite",
+    "database_env": "TRAVEL_PREFERENCES_DB",
+    "runtime_root_env": "TRAVEL_SHARED_ROOT",
+    "actions": ["get", "update", "delete", "clear", "prepare", "invoke"],
+    "requirement_agent": "agents/travel-requirement-analysis.md",
+    "auto_registered": false
+  },
   "source": "GPT/team-travel-skills-2026-10-25",
   "codearts_compat": {
     "skill_frontmatter_fields": ["name", "description", "language", "allowed-tools"],

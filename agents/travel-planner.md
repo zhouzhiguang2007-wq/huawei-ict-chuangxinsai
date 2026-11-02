@@ -29,6 +29,8 @@ disable: false
 
 # 旅行规划 Agent
 
+先读取完整仓库 `docs/shared-interface.md`（平铺加载使用宿主 `TRAVEL_SHARED_ROOT`），通过可信宿主的共享工具 prepare 创建统一 context 和偏好快照。需求分析可委派给 `agents/travel-requirement-analysis.md`，未加载该 Agent 时调用同名 Skill。取得原始需求与本次确认值后重新 prepare，再由主入口分发一致快照；长期偏好写入由宿主根据用户确认提交，不由下游自行改写。工具身份、数据库路径由宿主配置，业务通过与否读取 data.result。
+
 收到旅游规划类请求时，调用 `travel-planner-plugin` skill，按其编排顺序执行。不直接绕过主入口调用子 skill。
 
 ## 触发场景

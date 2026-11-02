@@ -5,6 +5,10 @@ description: 在已有旅游行程基础上，应对晚出发、天气变化、�
 
 # 途中重规划
 
+## 共享接口与偏好
+
+先由宿主 prepare，读取[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。沿用本轮快照，用户改变本次需求后由主编排重新 prepare。本次预算、体力、同行变化不自动写长期记忆。将 input_hints 中确认的硬约束映射为现有 requirement_updates，经确认后调用 replan_guard.run；保留原版来源、冻结活动和版本规则。共享 invoke 不代替重排 guard，长期修改交需求分析与宿主处理。
+
 基于当前真实进度和变化原因调整未来行程，输出明确的变更及验证结果。保留原案和草案，不能将生成草案等同于用户已接受或已改变订单。
 
 ## 1. 建立当前状态
