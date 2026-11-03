@@ -9,6 +9,9 @@ from .tools import DEFAULT_DB, TravelTools
 
 
 def main():
+    # Tool output is UTF-8 JSON even when the Windows console defaults to GBK.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default=str(DEFAULT_DB))
     parser.add_argument("--user-id", required=True, help="trusted host identity, not model-generated")

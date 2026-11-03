@@ -39,7 +39,7 @@ AgentArts 云端节点不能访问开发者电脑路径。云端需访问下面�
 
 顶层 `status` 仅表示工具调用：`ok`、`invalid`、`unavailable`。业务计算结果放在 `data.result`，保留原始 `status/ready/valid` 等字段。顶层 `ok` 不等于行程通过；例如 `data.result.status=fail` 必须回到修正流程。
 
-CLI 对应退出码为0、2、3。HTTP 对应200、400、503，身份认证失败401。业务失败不更改工具调用状态。
+CLI 输出 UTF-8 JSON（包括 Windows 默认 GBK 终端），退出码为0、2、3。HTTP 对应200、400、503，身份认证失败401、只读凭据请求写操作返回403。业务失败不更改工具调用状态。
 
 ## 统一交接 context
 
@@ -84,7 +84,7 @@ CLI 对应退出码为0、2、3。HTTP 对应200、400、503，身份认证失�
 
 缺失、null、unspecified 和默认空数组表示未知，继承较低优先级的值。用户明确说“这次无兴趣限制”时，将 `interests: []` 并把 `interests` 加入 `explicit_preference_fields`，才能显式清空本次偏好。`0` 分钟是有效明确值。长期偏好的删除使用 delete/clear，不通过 null 隐式删除。
 
-主编排首次 prepare 取得 `preference_snapshot`，其中有合并后的偏好、逐字段 origins（memory/trip/current）和 memory_status。只把返回的 context 分发到下游，保持快照一致；下游修改 skill/payload 后复用快照，不再次读取数据库。
+主编排首次 prepare 取得 `preference_snapshot`，其中有合并后的偏好、逐字段 origins（memory/trip/current）、memory_status 和服务端封签 `seal`。封签绑定可信 user_id 与 trip_id；下游只能修改 skill/payload 后复用同一 context，不能编辑快照。篡改、跨用户或跨行程复用会返回 invalid。多个后端实例或多次独立 CLI 调用要在受保护的宿主配置中共用至少 32 字节的 `TRAVEL_SNAPSHOT_SECRET`；未配置时每个进程生成临时随机密钥，只能在同一进程内复用快照。密钥不能传给模型、用户文本或浏览器前端。
 
 用户开始新一轮修改需求或切换用户时，宿主丢弃旧快照，以原始本次偏好重新 prepare。不能把上轮已经合并的全部偏好冒充本轮明确输入；宿主应保留原始需求与本次确认值。快照由可信宿主维护，不接受网页、用户或模型伪造的快照。
 
@@ -105,7 +105,7 @@ CLI 对应退出码为0、2、3。HTTP 对应200、400、503，身份认证失�
 
 ### 确定性脚本调用
 
-`invoke` 支持：需求校验、完整路线校验、住宿费用比较、行程复核、空档可行性计算。需求校验直接使用合并后的 requirements；其余使用 payload（复核额外应用上述硬约束映射）。复核未传 `as_of` 时使用后端当前时间，不能用游客文本当时钟。
+`invoke` 支持：需求校验、完整路线校验、住宿费用比较、行程复核、空档可行性计算。需求校验直接使用合并后的 requirements；其余使用 payload（复核额外应用上述硬约束映射）。共享接口复核时**总是**以可信后端当前时间覆盖 payload 中的 `as_of`，防止模型把时钟改到过去而放行已错过的活动；单独直接调用原复核脚本时由调用方负责传可信时间。
 
 主编排与拍照属于模型工作流，只支持 prepare。重排先 prepare，再按现有 `replan_guard.py` 接口调用，保留原版进度、事件、冻结活动和版本检查；将已确认映射通过现有 requirement_updates 流程确认，不能绕过该流程直接改旧计划。手册先 prepare，再按现有 CLI 生成文件。共享 invoke 不生成图片、不写手册文件、不自动执行 LLM、不自动注册平台工具。
 
@@ -122,16 +122,17 @@ CLI 对应退出码为0、2、3。HTTP 对应200、400、503，身份认证失�
 PowerShell 本地示例：
 
 ```powershell
-# token 使用随机值；示例标记须替换，密钥只保留在后端配置。
-$env:TRAVEL_TOOL_TOKENS='{"replace-with-random-token":"demo-alice"}'
+# token 与快照密钥使用随机值；示例标记须替换，只保留在后端受保护配置。
+$env:TRAVEL_TOOL_TOKENS='{"replace-with-read-token":"demo-alice","replace-with-write-token":{"user_id":"demo-alice","allow_memory_write":true}}'
+# TRAVEL_SNAPSHOT_SECRET 必须为至少 32 字节的随机密钥，跨实例/重启复用快照时各实例保持一致。
 python -m travel_shared.server --db ./data/preferences.sqlite3
 ```
 
-后端只提供 `POST /v1/tools`，Body 为上述请求 JSON，认证头 `Authorization: Bearer <token>`。服务端按 token 查用户身份，拒绝请求中的 user_id。token 表适合受控 Demo；真实多用户应用由登录后端确定身份并调用 Python 接口，不能让所有用户共用一个固定身份 token。密钥放在平台工具的受保护配置中，不写进提示词、浏览器前端或仓库。
+后端只提供 `POST /v1/tools`，Body 为上述请求 JSON，认证头 `Authorization: Bearer <token>`。服务端按 token 查用户身份，拒绝请求中的 user_id。简单的 `token: user_id` 条目**默认只读**，可用于 get/prepare/invoke；update/delete/clear 返回 403。只有显式 `{"user_id":"...","allow_memory_write":true}` 的写凭据才能修改长期偏好；写凭据应由已验证用户确认的可信后端持有，不能配置给可由模型自行调用的工具。`confirmed=true` 与 source 仍需由可信后端依据真实用户确认提交，不能由模型或网页自行声称。token 表适合受控 Demo；真实多用户应用由登录后端确定身份并调用 Python 接口，不能让所有用户共用一个固定身份 token。密钥放在平台工具的受保护配置中，不写进提示词、浏览器前端或仓库。
 
 默认监听127.0.0.1，仅供本机验证。云端通过可达 HTTPS 入口和可信代理接入，将数据库放在同一台后端的持久化磁盘；不要把 db 放进无持久化的函数临时目录，也不要让多台机器直接共享打开 db 文件。服务使用短事务和5秒锁等待，低频写入使用 SQLite 默认日志模式。大规模多实例部署再迁移数据库，调用方接口保持不变。
 
-在 AgentArts 的工具配置中填写后端 HTTPS 地址、POST、JSON 请求及认证头，或依据 `contracts/tools.openapi.json` 导入（是否支持导入以实际控制台为准）。如平台只支持标量输入输出，可信后端调用 `travel_shared.tools.main({"request_json":"..."}, user_id=authenticated_user, db_path=...)`，得到 status/result_json；不要直接把 user_id 暴露成模型可填参数。仓库不代替控制台完成注册、鉴权配置、云部署或 Demo 页面搭建。
+在 AgentArts 的工具配置中填写后端 HTTPS 地址、POST、JSON 请求及认证头，或依据 `contracts/tools.openapi.json` 导入（是否支持导入以实际控制台为准）。如平台只支持标量输入输出，可信后端调用 `travel_shared.tools.main({"request_json":"..."}, user_id=authenticated_user, db_path=...)`，得到 status/result_json；该桥接默认拒绝长期偏好写入。用户在可信后端确认长期保存/删除后，后端才单独传 `allow_memory_write=True`。不要把该参数或 user_id 暴露成模型可填字段。仓库不代替控制台完成注册、鉴权配置、云部署或 Demo 页面搭建。
 
 ## 验收
 

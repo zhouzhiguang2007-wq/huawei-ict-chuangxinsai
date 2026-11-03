@@ -1,6 +1,6 @@
 ---
 name: travel-planner-plugin
-description: 端到端旅游规划工作流编排器。TRIGGER when: 旅游规划、自由行攻略、逐日完整线路、行程报告、经费预算、景点美食、拍照点、雨天备选、途中改行程、临时空档玩什么。按顺序编排需求确认→资料核实→住宿→拍照→合成报告→复核→手册，每步前置本地 RAG 检索规范。不用于订票、付款、改签。
+description: 端到端旅游规划工作流编排器。TRIGGER when: 旅游规划、自由行攻略、逐日完整线路、行程报告、经费预算、景点美食、拍照点、雨天备选、途中改行程、临时空档玩什么。按顺序编排需求确认→资料核实→住宿→拍照→合成报告→复核→手册，在相关步骤检索本地 RAG 规范。不用于订票、付款、改签。
 language: zh
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 ---
@@ -9,11 +9,11 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 
 ## 共享接口与偏好入口
 
-先读取[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。在需求分析前由可信宿主调用共享工具 `prepare`，取得本次 context 和偏好快照，向用户说明沿用偏好，再分发给下游。需求分析确认新条件后丢弃旧快照，用原始本次偏好重新 prepare。当前轮各模块复用同一快照。独立拍照、住宿、重排和空档请求同样走此入口。
+先读取[共享接口](../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。在需求分析前由可信宿主调用共享工具 `prepare`，取得本次 context 和偏好快照，向用户说明沿用偏好，再分发给下游。需求分析确认新条件后丢弃旧快照，用原始本次偏好重新 prepare。当前轮各模块复用同一快照。独立拍照、住宿、重排和空档请求同样走此入口。
 
 长期偏好保存由需求分析提供确认依据、可信宿主提交 `update`。本次日期、预算、人数和临时变化只更新本次需求。统一响应顶层 `ok` 只表示工具运行成功，行程通过与否读取 `data.result` 原始业务状态；完整安装及云端工具接入见共享接口。
 
-本 skill 是插件主入口，不直接实现业务，只负责按序调度子 skill 并在每步前置 RAG 检索。完整调用顺序与跳过条件见 `references/orchestration.md`。
+本 skill 是插件主入口，不直接实现业务，负责按序调度子 skill，并在标注 RAG 的步骤检索规范。RAG 命令须在 `TRAVEL_SHARED_ROOT` 指向的完整仓库根运行；平铺到码道缓存的 Skill 目录本身没有 `rag/` 和 `travel_shared/`。完整调用顺序与跳过条件见 `references/orchestration.md`。
 
 ## 调用顺序
 
@@ -22,8 +22,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 3. **RAG 检索** `"资料核实 天气 交通 12306 景点开放"` → 调用 `multi-platform-travel-planner`（发现+核实+天气+交通）；铁路日期、起终点已知时，本轮主动尝试官方 12306 查询往返车次，不能等用户提醒；用户未给可出发时段时先查全天候选，再确认时段后选车；无可用官方查询工具时记录原因，不填精确车次或时刻
 4. 有过夜 → **RAG** `"住宿比价 位置 房型 取消政策"` → `travel-accommodation-advisor`；当日游跳过
 5. 有拍照 → **RAG** `"拍照指导 机位 姿势 构图"` → `x-xiake`；不需要拍照时跳过
-6. 调用 `multi-platform-travel-planner` 合成逐日时间线+预算报告，运行 `scripts/validate_route_timeline.py`
-7. **RAG** `"复核规则 时间冲突 开放预约 预算"` → `travel-plan-review`；交付前使用宿主当前时间检查 `planned` 活动，若开始时间已过，先确认实际进度或最早可出发时间并重排，fail 退回对应环节修正再复核，不能标为可执行
+6. 调用 `multi-platform-travel-planner` 合成逐日时间线+预算报告，运行 `scripts/validate_route_timeline.py`；`fail` 先修正，`incomplete` 保留缺项并标条件草案，不能写成已可执行；用户要“旅游报告”“完整行程”或攻略文件时交付完整逐段线路、游玩时长和详细交通预算，不降为一屏摘要
+7. **RAG** `"复核规则 时间冲突 开放预约 预算"` → `travel-plan-review`；交付前使用宿主当前时间检查 `planned` 活动，若开始时间已过，先确认实际进度或最早可出发时间并重排；业务结果 `fail` 退回修正，`incomplete` 仅能交条件草案，`pass` 才能标为当前资料下可执行
 8. 需手册 → `travel-handbook-builder`；不需要交互手册时跳过
 
 ## 交付后分流
@@ -35,7 +35,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 ## RAG 软前置规则
 
 - 检索成功：把 top-k chunk 注入当前子 skill 上下文作为规范提示
-- 检索失败（索引未建/模型缺失/查询异常）：降级直接读子 skill 的 references 原文，不阻断流程，记录降级原因
+- 检索失败或索引提示与当前 Skill 不一致：直接读子 skill 的 `SKILL.md` 与相关 references 原文，不阻断流程，记录降级原因；以当前原文为准，不让旧索引覆盖新规则
 - RAG 索引未建时提示用户运行 `python rag/build_index.py`
 
 ## 状态与证据交接

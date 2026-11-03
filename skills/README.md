@@ -2,14 +2,16 @@
 
 九个 Skill 共用[项目接口与 SQLite 偏好工具](../docs/shared-interface.md)：主编排 prepare 后分发一致 context；独立调用由宿主先 prepare。完整仓库是共享工具运行目录，平铺加载时额外配置宿主 TRAVEL_SHARED_ROOT，不能只复制 Skill 就认为已安装数据库工具。需求分析 Agent 理解长期偏好，宿主确认写入，其他模块复用本次快照。
 
-本目录下**每一个子文件夹都是一个独立、可单独加载的 Skill**，都有各自的 `SKILL.md`、`references/`、`scripts/`。
+运行本地 RAG 或共享工具时，先让 `TRAVEL_SHARED_ROOT` 指向**完整仓库根目录**，再在该目录运行 `python rag/retrieve.py "查询词"` 或 `python -m travel_shared ...`。码道缓存下平铺的九个 Skill 只提供各自说明和脚本；若宿主没有配置完整仓库路径，主入口应直接读取当前 Skill 原文与 references，不能把 RAG 检索或记忆读取写成已成功。用户要求“旅游报告”或“完整行程”时输出逐日完整线路；一屏摘要仅用于简短咨询。
+
+本目录下**每一个子文件夹都是一个独立、可单独加载的 Skill**，均有 `SKILL.md`；`references/` 和 `scripts/` 按实际能力提供。
 不是只有一个主入口——`travel-planner-plugin` 只是把它们串成完整工作流的编排器。
 
 ## Skill 清单（9 个）
 
 | # | Skill 名 | 目录 | 作用 | 触发示例 |
 |---|---|---|---|---|
-| 1 | `travel-planner-plugin` | `travel-planner-plugin/` | **编排器（主入口）**：按序调度下面 7 个能力，每步前置本地 RAG | 旅游规划、自由行攻略、逐日完整线路、做一份旅游报告 |
+| 1 | `travel-planner-plugin` | `travel-planner-plugin/` | **编排器（主入口）**：按需调度其余 8 个能力，相关步骤前置本地 RAG | 旅游规划、自由行攻略、逐日完整线路、做一份旅游报告 |
 | 2 | `travel-requirement-analysis` | `travel-requirement-analysis/` | 需求确认：逐轮问清目的地/日期/预算/天数/人数/偏好 | 帮我规划旅行、先问我缺的信息 |
 | 3 | `multi-platform-travel-planner` | `multi-platform-travel-planner/` | 资料核实+报告合成：对比抖音/小红书/地图/官方源，核实景点美食天气交通，生成逐段时间线与预算 | 查景点美食天气交通、把这些并成报告 |
 | 4 | `travel-accommodation-advisor` | `travel-accommodation-advisor/` | 住宿比价：位置/房型/多平台报价 | 住哪里、酒店比价、要 15 间双床房 |
@@ -54,6 +56,8 @@ C:\Users\<你>\.codeartsdoer\cache\user\skills\
 
 即把本目录下的 9 个文件夹**逐个**拷到 `cache\user\skills\` 下，使 `cache\user\skills\x-xiake\SKILL.md` 直接可达（不要再套一层仓库名）。
 agent 定义 `agents/travel-planner.md` 拷到 `cache\user\agents\`。
+
+偏好记忆还需保留完整仓库并由宿主配置 `TRAVEL_SHARED_ROOT`、持久化数据库路径及共享工具入口，步骤见[共享接口说明](../docs/shared-interface.md)。Agent 定义中的 `mcp_tools: {}` 不会自动注册 HTTP 工具；只复制上述 Skill 文件夹时，仍可做普通规划，但不能宣称已经读取或保存长期偏好。
 
 加载后码道 `listSkills` 应看到 9 个 skill，其中包含 `x-xiake`。若仍只有 `multi-platform-travel-planner`，请检查是否把仓库整个文件夹当成了一个 skill、或多平台被当成了唯一主入口。
 

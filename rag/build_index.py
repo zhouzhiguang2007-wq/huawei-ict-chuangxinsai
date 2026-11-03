@@ -1,54 +1,85 @@
-import os
-import sys
+"""Build a source-tracked local RAG index from all Skills and workflow docs."""
+
+import argparse
 import json
-import time
+import os
+import tempfile
+from dataclasses import asdict
+from datetime import datetime, timezone
+from pathlib import Path
+
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(__file__))
 from chunk_strategy import load_and_split
-from dataclasses import asdict
+from index_state import INDEX_SCHEMA_VERSION, digest_file, source_snapshot
+from model_loader import load_model
+
+
+RAG_DIR = Path(__file__).resolve().parent
 
 
 def load_config():
     import yaml
-    cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
-    with open(cfg_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+
+    with (RAG_DIR / "config.yaml").open(encoding="utf-8") as stream:
+        return yaml.safe_load(stream)
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--offline", action="store_true",
+                        help="require an already cached embedding model")
+    args = parser.parse_args()
+
     cfg = load_config()
-    here = os.path.dirname(__file__)
-    corpus = os.path.join(here, "..", cfg.get("corpus_dir", "skills"))
-    index_dir = os.path.join(here, cfg.get("index_dir", "index"))
-    os.makedirs(index_dir, exist_ok=True)
-
-    chunks = load_and_split(corpus)
+    corpus = (RAG_DIR.parent / cfg.get("corpus_dir", "skills")).resolve()
+    index_dir = (RAG_DIR / cfg.get("index_dir", "index")).resolve()
+    config_path = RAG_DIR / "config.yaml"
+    snapshot_before = source_snapshot(corpus, config_path)
+    chunks = load_and_split(corpus, max_chars=int(cfg.get("max_chars", 800)))
     if not chunks:
-        print("no chunks; check corpus_dir", file=sys.stderr)
-        sys.exit(1)
+        parser.error("no Skill or workflow chunks found; check corpus_dir")
 
-    from sentence_transformers import SentenceTransformer
-    model = SentenceTransformer(cfg["embedding_model"])
-    texts = [c.text for c in chunks]
-    vectors = model.encode(texts, normalize_embeddings=True, show_progress_bar=True)
-    vectors = np.asarray(vectors, dtype=np.float32)
+    model, revision = load_model(cfg["embedding_model"], allow_download=not args.offline)
+    vectors = np.asarray(model.encode([chunk.text for chunk in chunks],
+                                      normalize_embeddings=True, show_progress_bar=True),
+                         dtype=np.float32)
+    if vectors.ndim != 2 or vectors.shape[0] != len(chunks):
+        raise RuntimeError("embedding count does not match source chunks")
+    snapshot_after = source_snapshot(corpus, config_path)
+    if snapshot_before != snapshot_after:
+        raise RuntimeError("Skill or workflow text changed during indexing; retry after edits finish")
 
-    np.save(os.path.join(index_dir, "vectors.npy"), vectors)
-    with open(os.path.join(index_dir, "chunks.jsonl"), "w", encoding="utf-8") as f:
-        for c in chunks:
-            f.write(json.dumps(asdict(c), ensure_ascii=False) + "\n")
+    index_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="rag-build-", dir=index_dir.parent) as temp_name:
+        staging = Path(temp_name)
+        vectors_path = staging / "vectors.npy"
+        chunks_path = staging / "chunks.jsonl"
+        np.save(vectors_path, vectors)
+        with chunks_path.open("w", encoding="utf-8", newline="\n") as stream:
+            for chunk in chunks:
+                stream.write(json.dumps(asdict(chunk), ensure_ascii=False) + "\n")
+        meta = {
+            "index_schema_version": INDEX_SCHEMA_VERSION,
+            "embedding_model": cfg["embedding_model"],
+            "model_revision": revision,
+            "dim": int(vectors.shape[1]),
+            "n": len(chunks),
+            "build_time": datetime.now(timezone.utc).isoformat(),
+            **snapshot_after,
+            "artifacts": {"vectors.npy": digest_file(vectors_path),
+                          "chunks.jsonl": digest_file(chunks_path)},
+        }
+        meta_path = staging / "meta.json"
+        with meta_path.open("w", encoding="utf-8", newline="\n") as stream:
+            stream.write(json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
+        # Metadata is installed last; readers reject any mixed old/new artifacts.
+        os.replace(vectors_path, index_dir / "vectors.npy")
+        os.replace(chunks_path, index_dir / "chunks.jsonl")
+        os.replace(meta_path, index_dir / "meta.json")
 
-    meta = {
-        "embedding_model": cfg["embedding_model"],
-        "dim": int(vectors.shape[1]),
-        "n": int(vectors.shape[0]),
-        "build_time": time.strftime("%Y-%m-%d %H:%M:%S"),
-    }
-    with open(os.path.join(index_dir, "meta.json"), "w", encoding="utf-8") as f:
-        json.dump(meta, f, ensure_ascii=False, indent=2)
-
-    print(f"indexed {meta['n']} chunks, dim={meta['dim']} -> {index_dir}")
+    print("indexed %d chunks from %d sources, dim=%d -> %s" %
+          (meta["n"], len(meta["sources"]), meta["dim"], index_dir))
 
 
 if __name__ == "__main__":

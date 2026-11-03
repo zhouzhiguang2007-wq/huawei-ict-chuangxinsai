@@ -1,9 +1,13 @@
 import copy
 import json
+import os
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
@@ -116,12 +120,35 @@ class SharedToolsTest(unittest.TestCase):
                                       "origins": {}, "memory_status": "loaded"}
         self.assertEqual(self.call("prepare", context=ctx)["status"], "invalid")
 
+    def test_snapshot_is_sealed_to_user_trip_and_contents(self):
+        secret = b"test-only-snapshot-secret-32-bytes-long"
+        first = TravelTools(self.db, snapshot_secret=secret)
+        second = TravelTools(self.db, snapshot_secret=secret)
+        ctx = first.handle({"action": "prepare", "context": context()}, user_id="alice")["data"]["context"]
+        self.assertEqual(second.handle({"action": "prepare", "context": ctx}, user_id="alice")["status"], "ok")
+        self.assertEqual(second.handle({"action": "prepare", "context": ctx}, user_id="bob")["status"], "invalid")
+        changed_trip = copy.deepcopy(ctx)
+        changed_trip["trip_id"] = "different-trip"
+        self.assertEqual(second.handle({"action": "prepare", "context": changed_trip}, user_id="alice")["status"], "invalid")
+        changed_preferences = copy.deepcopy(ctx)
+        changed_preferences["requirements"]["preferences"] = {"pace": "intensive"}
+        changed_preferences["preference_snapshot"]["preferences"] = {"pace": "intensive"}
+        changed_preferences["preference_snapshot"]["origins"] = {"pace": "current"}
+        self.assertEqual(second.handle({"action": "prepare", "context": changed_preferences}, user_id="alice")["status"], "invalid")
+        self.assertEqual(TravelTools(self.db).handle({"action": "prepare", "context": ctx},
+                                                     user_id="alice")["status"], "invalid")
+
     def test_changed_current_preferences_require_a_new_snapshot(self):
         ctx = self.call("prepare", context=context(preferences={"pace": "relaxed"}))["data"]["context"]
         ctx["requirements"]["preferences"] = {"pace": "intensive"}
         self.assertEqual(self.call("prepare", context=ctx)["status"], "invalid")
         ctx.pop("preference_snapshot")
         self.assertEqual(self.call("prepare", context=ctx)["status"], "ok")
+
+    def test_new_trip_preferences_cannot_be_silently_ignored_with_snapshot(self):
+        ctx = self.call("prepare", context=context())["data"]["context"]
+        ctx["trip_preferences"] = {"pace": "intensive"}
+        self.assertEqual(self.call("prepare", context=ctx)["status"], "invalid")
 
     def test_openapi_and_manifest_match_runtime(self):
         spec = json.loads((ROOT / "contracts/tools.openapi.json").read_text(encoding="utf-8"))
@@ -215,6 +242,15 @@ class SharedToolsTest(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["data"]["result"]["status"], "fail")
 
+    def test_review_uses_trusted_clock_even_if_payload_claims_past_as_of(self):
+        payload = json.loads((ROOT / "skills/travel-plan-review/examples/basic-plan.json").read_text(encoding="utf-8"))
+        payload["as_of"] = "2020-01-01T00:00:00+00:00"
+        tools = TravelTools(self.db, clock=lambda: datetime(2026, 11, 7, tzinfo=timezone.utc))
+        result = tools.handle({"action": "invoke", "context": context("travel-plan-review", payload=payload)},
+                              user_id="alice")
+        self.assertEqual(result["status"], "ok")
+        self.assertIn("past_start", {issue["rule"] for issue in result["data"]["result"]["issues"]})
+
     def test_other_native_tools_and_prepare_only_skills(self):
         for skill in ("multi-platform-travel-planner", "travel-time-pocket"):
             result = self.call("invoke", context=context(skill))
@@ -230,6 +266,25 @@ class SharedToolsTest(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         self.assertEqual(json.loads(result["result_json"])["data"]["preferences"], {})
         self.assertEqual(main({"request_json": "bad"}, user_id="alice", db_path=self.db)["status"], "invalid")
+        change = {"action": "update", "preferences": {"pace": "relaxed"},
+                  "confirmed": True, "source": "用户明确确认"}
+        self.assertEqual(main({"request_json": json.dumps(change)}, user_id="alice",
+                              db_path=self.db)["status"], "invalid")
+        self.assertEqual(main({"request_json": json.dumps(change)}, user_id="alice",
+                              db_path=self.db, allow_memory_write=True)["status"], "ok")
+
+    def test_cli_emits_utf8_json_on_gbk_host(self):
+        request_file = Path(self.temp.name) / "request.json"
+        request_file.write_text(json.dumps({"action": "prepare", "context":
+                                            context(preferences={"photo_styles": ["📷"]})},
+                                           ensure_ascii=False), encoding="utf-8")
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "gbk"
+        result = subprocess.run([sys.executable, "-m", "travel_shared", "--db", str(self.db),
+                                 "--user-id", "alice", str(request_file)], cwd=ROOT, env=env,
+                                capture_output=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout.decode("utf-8"))["status"], "ok")
 
     def test_bad_contracts_return_invalid(self):
         for request in (None, [], {"action": "bad"}, {"action": "prepare", "context": {}},
@@ -242,7 +297,8 @@ class HTTPTest(unittest.TestCase):
     def test_identity_authentication_and_json_interface(self):
         with tempfile.TemporaryDirectory() as temp:
             server = make_server(("127.0.0.1", 0), TravelTools(Path(temp) / "test.sqlite3"),
-                                 {"alice-secret": "alice", "bob-secret": "bob"})
+                                 {"alice-secret": "alice", "bob-secret": "bob",
+                                  "alice-write-secret": {"user_id": "alice", "allow_memory_write": True}})
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             url = "http://127.0.0.1:%s/v1/tools" % server.server_address[1]
@@ -256,8 +312,12 @@ class HTTPTest(unittest.TestCase):
                 with self.assertRaises(HTTPError) as error:
                     post({"action": "get"}, "wrong")
                 self.assertEqual(error.exception.code, 401)
-                post({"action": "update", "preferences": {"pace": "relaxed"},
-                      "confirmed": True, "source": "user confirmation"}, "alice-secret")
+                write_request = {"action": "update", "preferences": {"pace": "relaxed"},
+                                 "confirmed": True, "source": "user confirmation"}
+                with self.assertRaises(HTTPError) as error:
+                    post(write_request, "alice-secret")
+                self.assertEqual(error.exception.code, 403)
+                post(write_request, "alice-write-secret")
                 self.assertEqual(post({"action": "get"}, "bob-secret")["data"]["preferences"], {})
                 self.assertEqual(post({"action": "get"}, "alice-secret")["data"]["preferences"]["pace"], "relaxed")
                 with self.assertRaises(HTTPError) as error:

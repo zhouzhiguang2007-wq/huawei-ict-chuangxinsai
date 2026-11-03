@@ -7,7 +7,7 @@ description: Research and build budget-conscious, complete chronological travel 
 
 ## 共享接口与偏好
 
-使用主编排分发的 context.requirements 与 preference_snapshot，执行前读[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。按兴趣、节奏和交通喜好筛选方案，不把喜好升级成硬限制。实时事实仍查询核实。完整路线脚本输入放 context.payload，共享 invoke 的 data.result 保留原生校验状态；只有业务校验通过才进入正式交付。
+使用主编排分发的 context.requirements 与 preference_snapshot，执行前读[共享接口](../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。按兴趣、节奏和交通喜好筛选方案，不把喜好升级成硬限制。实时事实仍查询核实。完整路线脚本输入放 context.payload，共享 invoke 的 data.result 保留原生校验状态；只有业务校验通过才进入正式交付。
 
 Turn fragmented travel posts into a feasible, sourced plan. Treat social content as discovery evidence and official or authoritative sources as verification evidence. Follow the user's explicit constraints over the defaults below.
 
@@ -100,7 +100,7 @@ Do not present a mathematically over-budget plan as feasible. Explain what chang
 
 ## 6. Write the result
 
-Use two output levels. Keep the complete structured itinerary, source records, transport legs, cost items, validation findings and unknowns internally for downstream skills and an on-demand detailed report. By default, deliver a traveler-facing answer in concise Chinese:
+Use two output levels. Keep the complete structured itinerary, source records, transport legs, cost items, validation findings and unknowns for downstream skills. A request for a 旅游报告、完整行程、攻略文件 or other file-ready deliverable counts as a **full report** even if the traveler does not say “详细”; use the complete-report requirements below. For a quick question or initial planning conversation, deliver a traveler-facing answer in concise Chinese:
 
 1. One sentence saying whether the plan is ready, provisional, or blocked, and why.
 2. One short line per day with the main route, approximate time window and rest or transfer that matters. Limit each day to roughly 2–4 major stops unless the user asks for detail.
@@ -110,7 +110,7 @@ Use two output levels. Keep the complete structured itinerary, source records, t
 
 Use short paragraphs or bullets. Do not put Markdown tables, raw JSON, validation logs, long platform comparisons, or dozens of unknown fields in the default chat answer. Do not output replacement characters (�), broken markup, or spacing between every character; if the text is corrupted, regenerate the affected answer before showing it. Preserve the user's destination, dates, party size and hard constraints exactly; if a prior example or another conversation conflicts, use the current confirmed request and ask only when genuinely ambiguous.
 
-When the user requests a full report, supply the complete route for **each day**: ordered segments from start to finish, named places and transfers, arrival/departure times, visit durations, meals, rest, and overnight/return endpoint. For every main attraction explain why it is included, at least two specific things to see or do, and practical visit/booking or weather notes. Include the platform comparison, full transport and budget tables, weather/closure alternatives, sources, validation status, and a concise daily story. For a document, spreadsheet or PDF, use the relevant artifact skill and preserve the same complete route, evidence and budget structure.
+For a full report, supply the complete route for **each day**: ordered segments from start to finish, named places and transfers, arrival/departure times, visit durations, meals, rest, and overnight/return endpoint. For every main attraction explain why it is included, at least two specific things to see or do, and practical visit/booking or weather notes. Include the platform comparison, full transport and budget tables, weather/closure alternatives, sources, validation status, and a concise daily story. For a document, spreadsheet or PDF, use the relevant artifact skill and preserve the same complete route, evidence and budget structure.
 
 ## 7. Handle follow-ups incrementally
 

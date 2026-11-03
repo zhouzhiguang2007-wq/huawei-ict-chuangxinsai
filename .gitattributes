@@ -1,0 +1,4 @@
+# Index artifact hashes are byte-for-byte; keep generated text identical on Windows and Linux.
+rag/index/*.jsonl text eol=lf
+rag/index/*.json text eol=lf
+rag/index/*.npy binary

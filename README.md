@@ -1,48 +1,43 @@
-# huawei-ict-chuangxinsai
+# 华为 ICT 旅游规划 Agent 插件
 
-华为 ICT 旅游规划 Agent Skills。
+本仓库包含 9 个可独立加载的旅游 Skill、一个完整行程编排入口、用于检索工作规范的本地 RAG，以及用于多 Agent 共享用户已确认偏好的工具。完整清单见 [Skills 说明](skills/README.md)，统一数据与工具约定见 [共享接口](docs/shared-interface.md)。
 
-## 共享接口与 SQLite 用户偏好
+用户要求“旅游报告”“完整行程”或攻略文件时，主入口 `travel-planner-plugin` 先确认目的地、日期、天数、人数和预算，再核实景点、交通、天气与住宿，安排逐日从起点到终点的线路，写清每段时间、游玩内容、接驳、餐饮休息和费用，复核后交付。拍照、途中重排和临时空档推荐也可独立调用。实时票价、房态、天气、开放与预约信息须在使用时重新核实；插件不代购、代订或代付款。
 
-项目新增统一交接 `context` 和标准库工具 `travel_shared`：SQLite 保存用户确认的长期偏好，需求分析负责理解，主编排统一分发同一份偏好快照。九个 Skill 均接入共享规范，现有业务脚本接口保留。
+## 获取与本地检查
 
-先看[安装、接口与 AgentArts 接入说明](docs/shared-interface.md)，再按[模拟请求](examples/shared-tools/)试跑。在完整仓库根运行 `python -m travel_shared --user-id demo-alice examples/shared-tools/get.json`；Python 3.9+，无第三方依赖。运行 `python scripts/run_checks.py` 验证共享接口与原有脚本。新增[需求分析 Agent 定义](agents/travel-requirement-analysis.md)可供码道加载或 AgentArts 提示词迁移。
+下载仓库 ZIP 或克隆仓库后，在**完整仓库根目录**运行：
 
-平铺复制 Skill 时，还须保留完整仓库作为共享工具运行目录并配置宿主 `TRAVEL_SHARED_ROOT`。云端需注册可达后端工具并配置持久化磁盘；仓库文件不会自动部署到 AgentArts。用户偏好与现有 RAG 规范库独立，不把用户档案加入公共索引。
+```powershell
+python scripts/run_checks.py
+python rag/scripts/validate_index.py
+python -m travel_shared --user-id demo-alice examples/shared-tools/get.json
+```
 
-## 快速开始
+统一检查覆盖插件清单、九个 Skill、本地脚本、共享接口及 RAG 索引新鲜度。共享工具和这些检查只依赖 Python 3.9+ 标准库；RAG **重建及语义检索**另需安装 `sentence-transformers`、`numpy`、`pyyaml`。`get.json` 是虚构用户的只读示例；要避免保存演示数据，可给 CLI 添加 `--db` 指向临时数据库。
 
-1. 打开 [Skills 使用顺序](skills/README.md)，了解先问需求、再核实资料和交通天气、最后生成并复核报告的流程。
-2. 本仓库共 9 个独立 skill，完整清单见 [Skills 清单](skills/README.md)；完整规划由 [travel-planner-plugin](skills/travel-planner-plugin/SKILL.md) 编排。
-3. 点击本仓库的 **Code → Download ZIP** 下载全部文件，解压后保留各 Skill 文件夹内的相对路径。
+若修改了 `skills/**/SKILL.md`、Skill 的 `references/*.md`、`docs/*.md` 或 `rag/config.yaml`，索引会被标为过期。在编辑完成后运行：
 
-该项目提供规划工作流和计算校验工具。实时票价、房态、天气及景区开放信息需要在每次使用时重新核实；不会自动购买或预订。
+```powershell
+python -m pip install sentence-transformers numpy pyyaml
+python rag/build_index.py
+python rag/scripts/validate_index.py
+python rag/retrieve.py "开封两天完整线路"
+```
 
-## 旅行规划插件（华为云码道适配）
+构建优先复用本地模型缓存，缺少模型时会下载；`python rag/build_index.py --offline` 要求模型已缓存。检索默认只使用本地模型，缺缓存时会说明原因，不会反复联网。索引文件位于 `rag/index/`，应与本次改动一起提交。索引只收录 Skill 与公共工作流说明，不收录个人偏好数据库。
 
-本仓库已封装为华为云码道（CodeArts Agent）本地插件包：原有 7 个 skill 已做码道适配（删除 `agents/openai.yaml`、`x-xiake` frontmatter 精简），并新增主入口 [`skills/travel-planner-plugin`](skills/travel-planner-plugin/SKILL.md) 编排完整工作流，配套自建本地 RAG。
+## 在华为云码道本地加载
 
-**本仓库含 9 个独立 skill**（含拍照 skill [`x-xiake`](skills/x-xiake/SKILL.md)），每个均可单独加载。完整清单与码道加载方式见 [`skills/README.md`](skills/README.md)。若码道只看到 `multi-platform-travel-planner`，说明只加载了其中一个，请按该清单平铺加载全部 9 个。
+1. 保留一份**完整仓库**，它提供 `rag/`、`travel_shared/`、`docs/` 和业务脚本。
+2. 按 [Skills 说明](skills/README.md) 将 `skills/` 下的 9 个文件夹逐个平铺复制到 `C:\Users\<你>\.codeartsdoer\cache\user\skills\`；将 `agents/travel-planner.md` 复制到同级 `agents\`。
+3. 在可信宿主配置 `TRAVEL_SHARED_ROOT` 为完整仓库根目录，按 [部署与联调说明](docs/deployment-readiness.md)配置共享工具入口、持久化数据库和偏好快照密钥。平铺后的 Skill 目录本身没有 `rag/` 或 `travel_shared/`。
+4. 重启码道会话，确认 `listSkills` 能看到全部 9 个 Skill，再请求一份带逐日时间线的旅游报告。
 
-### 码道加载使用
+仅平铺复制 Skill 时，普通规划说明仍可使用；历史偏好读取、保存和 RAG 检索需宿主实际接通相应工具。Agent 文件中的 `mcp_tools: {}` 不会自动注册这些工具。
 
-1. 下载本仓库 ZIP（**Code → Download ZIP**），解压。
-2. 把 `skills/*` 拷到 `C:\Users\<你>\.codeartsdoer\cache\user\skills\`，把 `agents/travel-planner.md` 拷到 `...cache\user\agents\`。
-3. 建 RAG 索引（在仓库根运行）：
-   ```bash
-   pip install sentence-transformers numpy pyyaml
-   python rag/build_index.py
-   ```
-4. 重启码道会话，对 Agent 说"从洛阳去开封，帮我做一份包含天气、吃住行、拍照点和预算的旅游报告"，即触发 `travel-planner-plugin`。
+## AgentArts 接入范围
 
-### 编排顺序
+GitHub 中的源码、索引与本地测试不等于 AgentArts 云端部署。云端还需在目标项目中部署可达的 HTTPS 工具后端、配置鉴权与持久化存储，并将工具注册到工作流；本地 CodeArts 缓存路径不能被云端节点直接访问。工具协议及读写权限见 [共享接口](docs/shared-interface.md)，逐项本地联调和平台接入步骤见 [部署与联调说明](docs/deployment-readiness.md)。
 
-需求确认 → 资料核实 → 住宿 → 拍照 → 合成报告 → 复核 → 手册，每步前置本地 RAG 检索规范。途中受扰动用 `travel-replanner`，临时空档用 `travel-time-pocket`。
-
-### 关键文件
-
-- [`plugin.json`](plugin.json) 自描述元数据
-- [`agents/travel-planner.md`](agents/travel-planner.md) 码道 agent 定义（permission.skill 白名单）
-- [`rag/`](rag/) 本地向量库（`build_index.py` 建库 / `retrieve.py` 检索）
-
-不替用户猜日期/预算/天数/人数/偏好；不执行订票/付款/改签；未经授权不定位。
+长期偏好只在用户明确确认后由可信后端写入。身份、写入凭据及 `TRAVEL_SNAPSHOT_SECRET` 不应放入提示词、前端或仓库。业务脚本返回的 `fail` 或 `incomplete` 不可当作可执行行程交付。

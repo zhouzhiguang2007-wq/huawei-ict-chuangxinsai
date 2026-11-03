@@ -17,6 +17,7 @@
           "200": {"description": "Tool executed; inspect data.result for business outcome", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ToolResponse"}}}},
           "400": {"description": "Invalid request"},
           "401": {"description": "Unauthorized"},
+          "403": {"description": "Read-only credential cannot change persistent memory"},
           "503": {"description": "Tool/storage unavailable"}
         }
       }
@@ -50,7 +51,7 @@
           "trip_preferences": {"$ref": "#/components/schemas/Preferences"},
           "explicit_preference_fields": {"type": "array", "items": {"type": "string"}},
           "payload": {"type": "object", "description": "Native target skill input", "additionalProperties": true},
-          "preference_snapshot": {"type": "object", "description": "Host-owned prepare output reused within a run; discard on new user requirements", "additionalProperties": true}
+          "preference_snapshot": {"type": "object", "description": "Server-sealed prepare output bound to authenticated user and trip; discard on new user requirements", "additionalProperties": true}
         }
       },
       "ToolRequest": {

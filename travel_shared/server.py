@@ -12,10 +12,19 @@ from .tools import DEFAULT_DB, TravelTools
 
 def make_server(address, tools, tokens):
     if not isinstance(tokens, dict) or not tokens:
-        raise ValueError("TRAVEL_TOOL_TOKENS must be a nonempty token-to-user JSON object")
-    for token, user_id in tokens.items():
+        raise ValueError("TRAVEL_TOOL_TOKENS must be a nonempty token-to-principal JSON object")
+    principals = {}
+    for token, principal in tokens.items():
         nonempty(token, "token")
+        if isinstance(principal, str):
+            principal = {"user_id": principal, "allow_memory_write": False}
+        if not isinstance(principal, dict) or set(principal) != {"user_id", "allow_memory_write"}:
+            raise ValueError("token principal requires user_id and allow_memory_write")
+        user_id = principal["user_id"]
         nonempty(user_id, "user identity")
+        if type(principal["allow_memory_write"]) is not bool:
+            raise ValueError("allow_memory_write must be boolean")
+        principals[token] = principal
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format, *args):
@@ -37,10 +46,10 @@ def make_server(address, tools, tokens):
                 self.respond(404, {"status": "not_found"})
                 return
             authorization = self.headers.get("Authorization", "")
-            user_id = next((user for token, user in tokens.items()
-                            if hmac.compare_digest(authorization.encode("utf-8"),
-                                                   ("Bearer " + token).encode("utf-8"))), None)
-            if user_id is None:
+            principal = next((value for token, value in principals.items()
+                              if hmac.compare_digest(authorization.encode("utf-8"),
+                                                     ("Bearer " + token).encode("utf-8"))), None)
+            if principal is None:
                 self.respond(401, {"status": "unauthorized"})
                 return
             try:
@@ -51,7 +60,12 @@ def make_server(address, tools, tokens):
             except (ValueError, UnicodeError, OSError):
                 self.respond(400, {"status": "invalid", "errors": ["invalid JSON request or size"]})
                 return
-            result = tools.handle(request, user_id=user_id)
+            if (isinstance(request, dict) and request.get("action") in {"update", "delete", "clear"}
+                    and not principal["allow_memory_write"]):
+                self.respond(403, {"status": "forbidden",
+                                   "errors": ["memory changes require a trusted write credential"]})
+                return
+            result = tools.handle(request, user_id=principal["user_id"])
             self.respond({"ok": 200, "invalid": 400, "unavailable": 503}[result["status"]], result)
 
     return ThreadingHTTPServer(address, Handler)

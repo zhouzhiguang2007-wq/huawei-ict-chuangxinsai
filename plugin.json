@@ -32,6 +32,7 @@
     "type": "local_vector",
     "index_dir": "rag/index",
     "build_script": "rag/build_index.py",
+    "validate_script": "rag/scripts/validate_index.py",
     "retrieve_script": "rag/retrieve.py",
     "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
     "top_k": 5

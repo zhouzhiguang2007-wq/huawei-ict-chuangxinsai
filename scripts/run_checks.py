@@ -1,4 +1,4 @@
-"""Run the existing standalone tests and shared interface tests without extra packages."""
+"""Run package, Skill, shared-tool, and RAG freshness checks."""
 
 import subprocess
 import sys
@@ -11,7 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     commands = [[sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"]]
     commands += [[sys.executable, str(path)] for path in sorted(ROOT.glob("skills/*/scripts/test_*.py"))]
+    commands.append([sys.executable, "scripts/validate_plugin_manifest.py"])
     commands.append([sys.executable, "rag/scripts/validate_skill_manifest.py"])
+    commands.append([sys.executable, "rag/scripts/validate_index.py"])
     failed = 0
     for command in commands:
         print("Running " + " ".join(command[1:]), flush=True)

@@ -46,7 +46,7 @@ If the origin, travel date, exact terminal, live page, or price is missing, writ
 
 ### Default traveler answer
 
-Use for ordinary travel requests, including complete multi-day trips. Build and validate the full time sequence internally, then show a screen-sized first answer: one-line conclusion; one short route line per day; compact confirmed/estimated/unknown budget; up to three decision-critical checks; one next action. No Markdown table or raw JSON. Give the traveler a clear option to see the full route, visit durations, transfer legs, food/rest, prices and sources. If core inputs are missing, ask the single most important question instead of generating a long placeholder report.
+Use for a quick planning question or first conversation when the user has not requested a report or file. Build and validate the full time sequence internally, then show a screen-sized answer: one-line conclusion; one short route line per day; compact confirmed/estimated/unknown budget; up to three decision-critical checks; one next action. No Markdown table or raw JSON. Give the traveler a clear option to see the full route, visit durations, transfer legs, food/rest, prices and sources. If core inputs are missing, ask the single most important question instead of generating a long placeholder report.
 
 ### Comparison report
 
@@ -62,7 +62,7 @@ Use when the user asks to compare Douyin, Xiaohongshu, and browser results:
 
 ### Detailed or file-ready report
 
-When explicitly requested, use descriptive headings, repeated table headers, currency units, page-friendly tables, a “交通查询与接驳” table, complete daily time sequences, and a final “价格与开放信息核验日期” note. Put citations or source links near the relevant sections. Do not let decorative layout hide assumptions, estimates, missing time segments or short attraction descriptions.
+Use this format when the user asks for a 旅游报告、完整行程、攻略文件 or another file-ready deliverable, even without the word “详细”. Use descriptive headings, repeated table headers, currency units, page-friendly tables, a “交通查询与接驳” table, complete daily time sequences, and a final “价格与开放信息核验日期” note. Put citations or source links near the relevant sections. Do not let decorative layout hide assumptions, estimates, missing time segments or short attraction descriptions.
 
 ## Follow-up modifications
 

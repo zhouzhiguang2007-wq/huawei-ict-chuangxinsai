@@ -1,60 +1,82 @@
-import os
-import sys
-import json
+"""Retrieve current Skill guidance from the source-tracked local RAG index."""
+
 import argparse
-import numpy as np
+import json
+from pathlib import Path
+
+from index_state import check_index, emit_json
+from model_loader import load_model
+
+
+RAG_DIR = Path(__file__).resolve().parent
 
 
 def load_config():
     import yaml
-    cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
-    with open(cfg_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+
+    with (RAG_DIR / "config.yaml").open(encoding="utf-8") as stream:
+        return yaml.safe_load(stream)
 
 
 def main():
-    ap = argparse.ArgumentParser(description="本地 RAG 检索")
-    ap.add_argument("query", help="检索查询")
-    ap.add_argument("--top-k", type=int, default=None)
-    ap.add_argument("--skill", default=None, help="只在该 skill 语料内检索")
-    ap.add_argument("--index-dir", default=None)
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("query", nargs="?", help="检索查询")
+    parser.add_argument("--top-k", type=int, default=None)
+    parser.add_argument("--skill", default=None, help="指定 Skill，仍包含共享工作流规范")
+    parser.add_argument("--index-dir", type=Path, default=None)
+    parser.add_argument("--check", action="store_true", help="只检查索引新鲜度，不加载模型")
+    args = parser.parse_args()
 
     cfg = load_config()
-    here = os.path.dirname(__file__)
-    index_dir = args.index_dir or os.path.join(here, cfg.get("index_dir", "index"))
-    top_k = args.top_k or cfg.get("top_k", 5)
+    index_dir = args.index_dir or RAG_DIR / cfg.get("index_dir", "index")
+    corpus_dir = RAG_DIR.parent / cfg.get("corpus_dir", "skills")
+    state = check_index(index_dir, corpus_dir, RAG_DIR / "config.yaml")
+    if state["status"] != "fresh":
+        emit_json({"status": state["status"], "error": "RAG index is unavailable or stale; rebuild it",
+                   "reasons": state["reasons"]})
+        return 2
+    if args.check:
+        emit_json(state)
+        return 0
+    if not args.query:
+        parser.error("query is required unless --check is used")
+    top_k = args.top_k if args.top_k is not None else cfg.get("top_k", 5)
+    if not isinstance(top_k, int) or top_k < 1:
+        parser.error("--top-k must be a positive integer")
 
-    vectors_path = os.path.join(index_dir, "vectors.npy")
-    chunks_path = os.path.join(index_dir, "chunks.jsonl")
-    if not os.path.exists(vectors_path) or not os.path.exists(chunks_path):
-        print(json.dumps({"error": "index not found, run build_index.py first", "index_dir": index_dir}, ensure_ascii=False))
-        sys.exit(1)
+    import numpy as np
 
-    vectors = np.load(vectors_path)
-    chunks = []
-    with open(chunks_path, "r", encoding="utf-8") as f:
-        for line in f:
-            chunks.append(json.loads(line))
+    vectors = np.load(Path(index_dir) / "vectors.npy", allow_pickle=False)
+    with (Path(index_dir) / "chunks.jsonl").open(encoding="utf-8") as stream:
+        chunks = [json.loads(line) for line in stream if line.strip()]
+    if vectors.ndim != 2 or len(chunks) != vectors.shape[0]:
+        emit_json({"status": "invalid", "error": "RAG vector/chunk dimensions disagree"})
+        return 2
 
-    from sentence_transformers import SentenceTransformer
-    model = SentenceTransformer(cfg["embedding_model"])
-    qv = model.encode([args.query], normalize_embeddings=True)
-    qv = np.asarray(qv, dtype=np.float32)
-    scores = (qv @ vectors.T)[0]
-    order = np.argsort(scores)[::-1]
-
+    try:
+        meta = json.loads((Path(index_dir) / "meta.json").read_text(encoding="utf-8"))
+        model, _ = load_model(cfg["embedding_model"], revision=meta["model_revision"],
+                              allow_download=False)
+    except RuntimeError as exc:
+        emit_json({"status": "unavailable", "error": str(exc)})
+        return 3
+    query_vector = np.asarray(model.encode([args.query], normalize_embeddings=True),
+                              dtype=np.float32)
+    if query_vector.shape != (1, vectors.shape[1]):
+        emit_json({"status": "invalid", "error": "embedding dimension differs from index"})
+        return 2
+    scores = (query_vector @ vectors.T)[0]
     results = []
-    for i in order:
-        c = chunks[i]
-        if args.skill and c["skill"] != args.skill:
+    for index in np.argsort(scores)[::-1]:
+        chunk = chunks[int(index)]
+        if args.skill and chunk["skill"] not in (args.skill, "shared"):
             continue
-        results.append({**c, "score": float(scores[i])})
+        results.append({**chunk, "score": float(scores[index])})
         if len(results) >= top_k:
             break
-
-    print(json.dumps(results, ensure_ascii=False, indent=2))
+    emit_json(results)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

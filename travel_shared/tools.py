@@ -1,10 +1,14 @@
 """One tool interface for local skills and hosted agents; no model or network I/O."""
 
 import importlib.util
+import hashlib
+import hmac
 import json
 import os
+import secrets
 import sqlite3
 from copy import deepcopy
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .contracts import (VERSION, SKILLS, adapt_requirements, merge_preferences,
@@ -18,8 +22,25 @@ DEFAULT_DB = Path(os.environ.get("TRAVEL_PREFERENCES_DB", "~/.travel-planner/pre
 class TravelTools:
     """Construct once in a trusted host; user_id is never extracted from model text."""
 
-    def __init__(self, db_path=DEFAULT_DB):
+    def __init__(self, db_path=DEFAULT_DB, *, snapshot_secret=None, clock=None):
         self.store = PreferenceStore(db_path)
+        secret = snapshot_secret if snapshot_secret is not None else os.environ.get("TRAVEL_SNAPSHOT_SECRET")
+        if secret is None:
+            secret = secrets.token_bytes(32)
+        elif isinstance(secret, str):
+            secret = secret.encode("utf-8")
+        if not isinstance(secret, bytes) or len(secret) < 32:
+            raise ValueError("snapshot secret must contain at least 32 bytes")
+        self._snapshot_secret = secret
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
+
+    def _snapshot_seal(self, snapshot, user_id, trip_id):
+        canonical = {"schema_version": VERSION, "user_id": user_id, "trip_id": trip_id,
+                     "preferences": snapshot["preferences"], "origins": snapshot["origins"],
+                     "memory_status": snapshot["memory_status"]}
+        message = json.dumps(canonical, ensure_ascii=False, sort_keys=True,
+                             separators=(",", ":")).encode("utf-8")
+        return hmac.new(self._snapshot_secret, message, hashlib.sha256).hexdigest()
 
     def handle(self, request, *, user_id):
         action = request.get("action") if isinstance(request, dict) else None
@@ -102,8 +123,11 @@ class TravelTools:
             saved, origins = merge_preferences(saved, trip, current,
                                                prepared.get("explicit_preference_fields", []))
             snapshot = {"preferences": saved, "origins": origins, "memory_status": memory_status}
+            snapshot["seal"] = self._snapshot_seal(snapshot, user_id, prepared["trip_id"])
         else:
             object_value(snapshot, "preference_snapshot")
+            if "trip_preferences" in prepared or "explicit_preference_fields" in prepared:
+                raise ValueError("discard snapshot before changing trip preferences")
             validate_preferences(snapshot.get("preferences"))
             if current and current != snapshot["preferences"]:
                 raise ValueError("preferences changed; discard snapshot and prepare a new orchestration run")
@@ -113,6 +137,11 @@ class TravelTools:
             if set(snapshot["origins"]) != set(snapshot["preferences"]) or any(
                     v not in {"memory", "trip", "current"} for v in snapshot["origins"].values()):
                 raise ValueError("invalid snapshot origins")
+            if set(snapshot) != {"preferences", "origins", "memory_status", "seal"}:
+                raise ValueError("invalid snapshot fields")
+            if (not isinstance(snapshot["seal"], str) or not hmac.compare_digest(
+                    snapshot["seal"], self._snapshot_seal(snapshot, user_id, prepared["trip_id"]))):
+                raise ValueError("snapshot does not belong to this user and trip or was changed")
         # A snapshot is host-owned and reused unchanged across one orchestration run.
         requirements["preferences"] = deepcopy(snapshot["preferences"])
         prepared["preference_snapshot"] = deepcopy(snapshot)
@@ -122,8 +151,7 @@ class TravelTools:
         warnings.extend(mapping.pop("warnings"))
         return {"context": prepared, **mapping}, warnings
 
-    @staticmethod
-    def _invoke(context):
+    def _invoke(self, context):
         # Only deterministic operations; payload retains each module's native schema.
         targets = {
             "travel-requirement-analysis": ("validate_requirements.py", "validate_requirements"),
@@ -149,19 +177,26 @@ class TravelTools:
                 if isinstance(payload.get(key), dict):
                     payload[key].setdefault("requirements", {}).update(
                         adapt_requirements(skill, context["requirements"])["input_hints"])
-            if "as_of" not in payload:
-                from datetime import datetime, timezone
-                payload["as_of"] = datetime.now(timezone.utc).isoformat()
+            # The model-facing payload cannot move the check clock into the past.
+            checked_at = self._clock()
+            if not isinstance(checked_at, datetime) or checked_at.utcoffset() is None:
+                raise ValueError("trusted clock must return an aware datetime")
+            payload["as_of"] = checked_at.isoformat()
         return getattr(module, function)(payload)
 
 
-def main(args, *, user_id, db_path=DEFAULT_DB):
-    """Trusted AgentArts backend bridge: input request_json, output result_json/status."""
+def main(args, *, user_id, db_path=DEFAULT_DB, allow_memory_write=False):
+    """Backend bridge; writes require a separate trusted host decision."""
     tools = TravelTools(db_path)
     try:
         request = json.loads(args["request_json"])
     except (KeyError, TypeError, ValueError):
         result = tools._result(None, "invalid", errors=["request_json must contain JSON"])
     else:
-        result = tools.handle(request, user_id=user_id)
+        if (isinstance(request, dict) and request.get("action") in {"update", "delete", "clear"}
+                and allow_memory_write is not True):
+            result = tools._result(request.get("action"), "invalid",
+                                   errors=["memory changes require trusted host authorization"])
+        else:
+            result = tools.handle(request, user_id=user_id)
     return {"status": result["status"], "result_json": json.dumps(result, ensure_ascii=False)}

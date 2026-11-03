@@ -7,7 +7,7 @@ description: "行迹手册生成器：把已复核的旅游行程、地点、餐
 
 ## 共享接口与偏好
 
-读取[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。复用主编排快照和最终已复核行程，不重新读取记忆覆盖已确认结果。先 prepare，再按本模块原生 CLI 生成页面；共享 invoke 不写手册文件。仅将最终行程内容映射到手册输入，不导出 user_id、偏好档案、确认依据或工具认证信息。
+读取[共享接口](../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。复用主编排快照和最终已复核行程，不重新读取记忆覆盖已确认结果。先 prepare，再按本模块原生 CLI 生成页面；共享 invoke 不写手册文件。仅将最终行程内容映射到手册输入，不导出 user_id、偏好档案、确认依据或工具认证信息。
 
 ## 何时使用
 
