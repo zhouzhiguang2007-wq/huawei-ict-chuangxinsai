@@ -13,6 +13,19 @@ Turn fragmented travel posts into a feasible, sourced plan. Treat social content
 
 For an end-to-end trip report using the companion skills, follow [the skill call order and handoffs](references/workflow-orchestration.md). Call a specialist only when its inputs and the user's request make it relevant; `multi-platform-travel-planner` remains responsible for the final integrated report.
 
+## 内部私有数据库
+
+执行前先查询旅行常识库获取目的地基础信息，避免空跑：
+- `knowledge_query`：`{category: "city_info", key: "<城市名>"}` → 返回知名景点、美食、季节提示、日均预算参考
+- `knowledge_query`：`{category: "intercity_transport", key: "<出发地→目的地>"}` → 返回交通方式、耗时、推荐
+- `knowledge_query`：`{category: "season_tip", key: "<季节>"}` → 返回当季推荐城市和注意事项
+- `knowledge_query`：`{category: "transit_tip", key: "地铁覆盖"}` → 返回有地铁的城市列表
+
+资料发现和核实结果存入会话上下文，供下游 skill 复用：
+- `session_put`：`{trip_id, skill: "multi-platform-travel-planner", stage: "candidate", key: "spots", value: <候选景点列表>}`
+- `session_put`：`{trip_id, skill: "multi-platform-travel-planner", stage: "verified", key: "weather", value: <天气数据>}`
+- `session_get`：按 trip_id 读取上游需求分析确认的参数
+
 ## 1. Parse the request
 
 Extract destination, departure date or date window, budget amount and per-person/group scope, duration, party size, interests, mobility limits, preferred transport, accommodation needs, the trip's actual starting and ending points or fixed travel services, requested platforms, and desired output format. Reuse answers already given in the active conversation.

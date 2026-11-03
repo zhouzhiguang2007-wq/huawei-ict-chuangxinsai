@@ -1,4 +1,8 @@
-"""Validate and merge preferences; adapt the existing requirement contract."""
+"""Validate and merge preferences; adapt the existing requirement contract.
+
+Extended with constants for the internal private database modules:
+knowledge categories, session stages, and skill registry categories.
+"""
 
 from copy import deepcopy
 from decimal import Decimal, InvalidOperation
@@ -10,6 +14,22 @@ SKILLS = (
     "multi-platform-travel-planner", "travel-accommodation-advisor", "x-xiake",
     "travel-plan-review", "travel-handbook-builder", "travel-replanner",
     "travel-time-pocket",
+)
+
+KNOWLEDGE_CATEGORIES = (
+    "city_info", "intercity_transport", "budget_reference",
+    "accommodation_type", "local_food", "photo_spot",
+    "season_tip", "transit_tip",
+)
+
+SESSION_STAGES = (
+    "confirmed", "candidate", "verified", "intermediate",
+    "review_result", "handbook_output",
+)
+
+REGISTRY_CATEGORIES = (
+    "orchestrator", "analysis", "planning", "accommodation",
+    "photo", "review", "handbook", "replanner", "pocket",
 )
 LIST_FIELDS = {"interests", "transport_modes", "accommodation", "photo_styles"}
 TEXT_FIELDS = {"pace", "photo_social_preference"}

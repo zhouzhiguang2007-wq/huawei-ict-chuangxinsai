@@ -11,6 +11,17 @@ description: 在旅行途中出现临时空档时，结合当前位置或用户�
 
 把临时空档转换为可执行的微行程。核心标准不是“附近”，而是候选活动能够到达、完成，并在安全缓冲前返回下一项固定安排。
 
+## 内部私有数据库
+
+查询候选活动时先查旅行常识库：
+- `knowledge_query`：`{category: "city_info", key: "<城市>"}` → 返回知名景点列表（快速筛选附近候选）
+- `knowledge_query`：`{category: "photo_spot", key: "<景点>"}` → 返回拍照机位信息
+- `knowledge_query`：`{category: "transit_tip", key: "地铁覆盖"}` → 返回有地铁的城市
+
+微行程结果存入会话上下文：
+- `session_put`：`{trip_id, skill: "travel-time-pocket", stage: "intermediate", key: "pocket_activity", value: <微行程>}`
+- `session_get`：读取当前行程和偏好
+
 ## 确定时间边界
 
 先取得：当前时间、起点、最晚返回时间、返回地点，以及不可迟到的下一项安排。沿用已确认的行程日期、预算、天数和偏好；缺少影响判断的事实时每轮只问一个问题，不用典型游玩时长或默认预算替用户作答。位置只能来自用户主动提供、既有行程或本次明确授权的定位结果；未获得授权时询问起点，不调用或推断设备位置。

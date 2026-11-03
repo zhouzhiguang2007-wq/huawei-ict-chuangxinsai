@@ -32,6 +32,23 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 - 临时空档且原行程无冲突 → `travel-time-pocket`；原行程已冲突则先 `travel-replanner`
 - 现场拍照/选片 → 直接 `x-xiake`，复用既有景点与人数，不重问整个旅行预算
 
+## 内部私有数据库
+
+插件内置三个私有 SQLite 模块（不公开、不暴露，只服务于插件内 skill）。首次使用前运行 `python -m travel_shared.seed_knowledge` 初始化。
+
+**模块 A — 旅行常识库**：skill 执行前先查询领域常识，避免空跑。
+- `knowledge_query` action：按 category+key 精确查询，或按 keyword 模糊检索
+- 分类：city_info、intercity_transport、budget_reference、accommodation_type、local_food、photo_spot、season_tip、transit_tip
+
+**模块 B — 会话上下文存储**：需求分析确认的参数和各 skill 产出的中间结果按 trip_id 关联，下游 skill 直接读取而不重问。
+- `session_put` / `session_get` / `session_get_requirements` action
+
+**模块 C — skill 能力注册表**：比标题更详细的能力描述、触发关键词、依赖关系。编排器用它决定调用哪些 skill，比 RAG 标题匹配更精准。
+- `registry_query` action：按用户查询匹配相关 skill
+- `registry_list` action：列出全部 9 个 skill 的完整能力描述
+
+调用方式：通过共享工具 `TravelTools.handle(request, user_id=...)` 发送 action 请求。
+
 ## RAG 软前置规则
 
 - 检索成功：把 top-k chunk 注入当前子 skill 上下文作为规范提示

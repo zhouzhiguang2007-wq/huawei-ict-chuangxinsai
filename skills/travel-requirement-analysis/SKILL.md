@@ -47,6 +47,15 @@ description: 从中文自然语言和对话上下文中提取、补全并校验�
 
 若用户只是随意咨询而不是要求制定行程，可输出已识别需求但保持 `ready=false`，在问题中询问是否开始规划。
 
+## 内部私有数据库
+
+确认需求后，通过 `session_put` action 将需求 JSON 存入会话上下文（trip_id 由编排器分配），供下游 skill 直接读取：
+- `session_put`：`{trip_id, skill: "travel-requirement-analysis", stage: "confirmed", key: "requirements", value: <需求JSON>}`
+- 下游 skill 用 `session_get_requirements` 直接获取已确认需求，不重问用户
+
+追问过程中可查询旅行常识库辅助判断（如用户说"经济型"时查 budget_reference 确认金额范围）：
+- `knowledge_query`：`{category: "budget_reference", key: "经济型"}` → 返回预算参考区间
+
 ## 输出与衔接
 
 详细结构、AgentArts 标量输出映射和样例见 [输入输出契约](references/input-output-schema.md)。`requirements_json` 必须是完整需求对象序列化后的 JSON 字符串，供 `travel-planner`、住宿建议、行程校验和动态重规划复用。
