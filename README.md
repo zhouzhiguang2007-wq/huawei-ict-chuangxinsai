@@ -2,6 +2,14 @@
 
 华为 ICT 旅游规划 Agent Skills。
 
+## 共享接口与 SQLite 用户偏好
+
+项目新增统一交接 `context` 和标准库工具 `travel_shared`：SQLite 保存用户确认的长期偏好，需求分析负责理解，主编排统一分发同一份偏好快照。九个 Skill 均接入共享规范，现有业务脚本接口保留。
+
+先看[安装、接口与 AgentArts 接入说明](docs/shared-interface.md)，再按[模拟请求](examples/shared-tools/)试跑。在完整仓库根运行 `python -m travel_shared --user-id demo-alice examples/shared-tools/get.json`；Python 3.9+，无第三方依赖。运行 `python scripts/run_checks.py` 验证共享接口与原有脚本。新增[需求分析 Agent 定义](agents/travel-requirement-analysis.md)可供码道加载或 AgentArts 提示词迁移。
+
+平铺复制 Skill 时，还须保留完整仓库作为共享工具运行目录并配置宿主 `TRAVEL_SHARED_ROOT`。云端需注册可达后端工具并配置持久化磁盘；仓库文件不会自动部署到 AgentArts。用户偏好与现有 RAG 规范库独立，不把用户档案加入公共索引。
+
 ## 快速开始
 
 1. 打开 [Skills 使用顺序](skills/README.md)，了解先问需求、再核实资料和交通天气、最后生成并复核报告的流程。

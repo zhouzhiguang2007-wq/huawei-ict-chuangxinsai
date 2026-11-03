@@ -5,6 +5,10 @@ description: 从中文自然语言和对话上下文中提取、补全并校验�
 
 # 旅游需求分析
 
+## 共享接口与偏好
+
+接收主编排 `prepare` 后的 context，读取[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。历史偏好用于减少重复询问，标记 memory 来源；本次明确要求优先。推断兴趣仍先确认，日期、人数、预算按本次询问。用户明确要求长期记住时给宿主提供偏好更新及确认依据，由宿主调用共享 `update`；“这次”修改只交回本次需求。完成条件：输出经校验的 requirements，并区分本次更新与长期保存建议。
+
 把用户说法转换为可执行的旅行约束。只收集和规范需求，不查询景点、天气、路线或价格，不生成完整行程。
 
 ## 分析流程
@@ -42,6 +46,15 @@ description: 从中文自然语言和对话上下文中提取、补全并校验�
 - 核心信息齐后再问一轮兴趣与节奏；有证据的偏好推断需用户确认，不能静默落地。用户明确无偏好时可结束访谈，不无限追问；其他未知值保留为 `null`、空数组或 `unspecified`，并列入 `unknown_fields`。
 
 若用户只是随意咨询而不是要求制定行程，可输出已识别需求但保持 `ready=false`，在问题中询问是否开始规划。
+
+## 内部私有数据库
+
+确认需求后，通过 `session_put` action 将需求 JSON 存入会话上下文（trip_id 由编排器分配），供下游 skill 直接读取：
+- `session_put`：`{trip_id, skill: "travel-requirement-analysis", stage: "confirmed", key: "requirements", value: <需求JSON>}`
+- 下游 skill 用 `session_get_requirements` 直接获取已确认需求，不重问用户
+
+追问过程中可查询旅行常识库辅助判断（如用户说"经济型"时查 budget_reference 确认金额范围）：
+- `knowledge_query`：`{category: "budget_reference", key: "经济型"}` → 返回预算参考区间
 
 ## 输出与衔接
 

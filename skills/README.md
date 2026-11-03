@@ -1,5 +1,7 @@
 # 旅游规划 Skills 目录（共 9 个独立 Skill）
 
+九个 Skill 共用[项目接口与 SQLite 偏好工具](../docs/shared-interface.md)：主编排 prepare 后分发一致 context；独立调用由宿主先 prepare。完整仓库是共享工具运行目录，平铺加载时额外配置宿主 TRAVEL_SHARED_ROOT，不能只复制 Skill 就认为已安装数据库工具。需求分析 Agent 理解长期偏好，宿主确认写入，其他模块复用本次快照。
+
 本目录下**每一个子文件夹都是一个独立、可单独加载的 Skill**，都有各自的 `SKILL.md`、`references/`、`scripts/`。
 不是只有一个主入口——`travel-planner-plugin` 只是把它们串成完整工作流的编排器。
 

@@ -5,9 +5,26 @@ description: Research and build budget-conscious, complete chronological travel 
 
 # Multi Platform Travel Planner
 
+## 共享接口与偏好
+
+使用主编排分发的 context.requirements 与 preference_snapshot，执行前读[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。按兴趣、节奏和交通喜好筛选方案，不把喜好升级成硬限制。实时事实仍查询核实。完整路线脚本输入放 context.payload，共享 invoke 的 data.result 保留原生校验状态；只有业务校验通过才进入正式交付。
+
 Turn fragmented travel posts into a feasible, sourced plan. Treat social content as discovery evidence and official or authoritative sources as verification evidence. Follow the user's explicit constraints over the defaults below.
 
 For an end-to-end trip report using the companion skills, follow [the skill call order and handoffs](references/workflow-orchestration.md). Call a specialist only when its inputs and the user's request make it relevant; `multi-platform-travel-planner` remains responsible for the final integrated report.
+
+## 内部私有数据库
+
+执行前先查询旅行常识库获取目的地基础信息，避免空跑：
+- `knowledge_query`：`{category: "city_info", key: "<城市名>"}` → 返回知名景点、美食、季节提示、日均预算参考
+- `knowledge_query`：`{category: "intercity_transport", key: "<出发地→目的地>"}` → 返回交通方式、耗时、推荐
+- `knowledge_query`：`{category: "season_tip", key: "<季节>"}` → 返回当季推荐城市和注意事项
+- `knowledge_query`：`{category: "transit_tip", key: "地铁覆盖"}` → 返回有地铁的城市列表
+
+资料发现和核实结果存入会话上下文，供下游 skill 复用：
+- `session_put`：`{trip_id, skill: "multi-platform-travel-planner", stage: "candidate", key: "spots", value: <候选景点列表>}`
+- `session_put`：`{trip_id, skill: "multi-platform-travel-planner", stage: "verified", key: "weather", value: <天气数据>}`
+- `session_get`：按 trip_id 读取上游需求分析确认的参数
 
 ## 1. Parse the request
 

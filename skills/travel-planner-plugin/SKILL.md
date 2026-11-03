@@ -7,6 +7,12 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 
 # 旅行规划插件（编排器）
 
+## 共享接口与偏好入口
+
+先读取[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。在需求分析前由可信宿主调用共享工具 `prepare`，取得本次 context 和偏好快照，向用户说明沿用偏好，再分发给下游。需求分析确认新条件后丢弃旧快照，用原始本次偏好重新 prepare。当前轮各模块复用同一快照。独立拍照、住宿、重排和空档请求同样走此入口。
+
+长期偏好保存由需求分析提供确认依据、可信宿主提交 `update`。本次日期、预算、人数和临时变化只更新本次需求。统一响应顶层 `ok` 只表示工具运行成功，行程通过与否读取 `data.result` 原始业务状态；完整安装及云端工具接入见共享接口。
+
 本 skill 是插件主入口，不直接实现业务，只负责按序调度子 skill 并在每步前置 RAG 检索。完整调用顺序与跳过条件见 `references/orchestration.md`。
 
 ## 调用顺序
@@ -25,6 +31,23 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 - 行程受扰动（晚出发/天气/闭园/预算变化）→ `travel-replanner` → `travel-plan-review` 复核 → 已有手册则 `travel-handbook-builder` 重建
 - 临时空档且原行程无冲突 → `travel-time-pocket`；原行程已冲突则先 `travel-replanner`
 - 现场拍照/选片 → 直接 `x-xiake`，复用既有景点与人数，不重问整个旅行预算
+
+## 内部私有数据库
+
+插件内置三个私有 SQLite 模块（不公开、不暴露，只服务于插件内 skill）。首次使用前运行 `python -m travel_shared.seed_knowledge` 初始化。
+
+**模块 A — 旅行常识库**：skill 执行前先查询领域常识，避免空跑。
+- `knowledge_query` action：按 category+key 精确查询，或按 keyword 模糊检索
+- 分类：city_info、intercity_transport、budget_reference、accommodation_type、local_food、photo_spot、season_tip、transit_tip
+
+**模块 B — 会话上下文存储**：需求分析确认的参数和各 skill 产出的中间结果按 trip_id 关联，下游 skill 直接读取而不重问。
+- `session_put` / `session_get` / `session_get_requirements` action
+
+**模块 C — skill 能力注册表**：比标题更详细的能力描述、触发关键词、依赖关系。编排器用它决定调用哪些 skill，比 RAG 标题匹配更精准。
+- `registry_query` action：按用户查询匹配相关 skill
+- `registry_list` action：列出全部 9 个 skill 的完整能力描述
+
+调用方式：通过共享工具 `TravelTools.handle(request, user_id=...)` 发送 action 请求。
 
 ## RAG 软前置规则
 

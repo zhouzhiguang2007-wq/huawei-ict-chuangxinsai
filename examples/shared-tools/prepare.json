@@ -1,0 +1,10 @@
+{
+  "action":"prepare",
+  "context":{
+    "schema_version":"1.0",
+    "trip_id":"demo-trip-001",
+    "skill":"x-xiake",
+    "requirements":{"preferences":{"photo_styles":["国风"]}},
+    "payload":{}
+  }
+}

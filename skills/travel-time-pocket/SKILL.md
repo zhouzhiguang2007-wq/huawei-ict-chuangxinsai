@@ -5,7 +5,22 @@ description: 在旅行途中出现临时空档时，结合当前位置或用户�
 
 # 碎片时间旅行推荐
 
+## 共享接口与偏好
+
+先由宿主 prepare，读取[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。用合并兴趣和节奏筛选候选，当前起终点、硬截止、交通与体力仍使用本次状态。原生 pocket 对象放 context.payload 后调用共享 invoke；仅从 data.result 中 feasible 的候选推荐，顶层 ok 不代表可行。临时喜好不自动保存为长期记忆。
+
 把临时空档转换为可执行的微行程。核心标准不是“附近”，而是候选活动能够到达、完成，并在安全缓冲前返回下一项固定安排。
+
+## 内部私有数据库
+
+查询候选活动时先查旅行常识库：
+- `knowledge_query`：`{category: "city_info", key: "<城市>"}` → 返回知名景点列表（快速筛选附近候选）
+- `knowledge_query`：`{category: "photo_spot", key: "<景点>"}` → 返回拍照机位信息
+- `knowledge_query`：`{category: "transit_tip", key: "地铁覆盖"}` → 返回有地铁的城市
+
+微行程结果存入会话上下文：
+- `session_put`：`{trip_id, skill: "travel-time-pocket", stage: "intermediate", key: "pocket_activity", value: <微行程>}`
+- `session_get`：读取当前行程和偏好
 
 ## 确定时间边界
 

@@ -1,5 +1,9 @@
 # 编排顺序与跳过条件
 
+## 共享需求与记忆交接
+
+调用本流程前按[共享接口](../../../docs/shared-interface.md)准备 context（平铺部署读取宿主 TRAVEL_SHARED_ROOT/docs/shared-interface.md）。需求分析先接收历史偏好，完成本次需求确认后由主编排重新 prepare，再把同一 preference_snapshot 分发给各步。各模块 payload 保留原生业务数据，读取 data.result 原始业务状态。长期偏好只通过宿主的共享工具写入，单独拍照/住宿/重排/空档同样先 prepare；更新需求后丢弃旧快照，重新用原始本次偏好合并。RAG 只检索公共规范，不检索私人偏好。
+
 主入口 `travel-planner-plugin` 按下表顺序调度子 skill。每步前置本地 RAG 检索（`rag/retrieve.py`），检索失败降级读 references 原文，不阻断。
 
 ## 主流程
