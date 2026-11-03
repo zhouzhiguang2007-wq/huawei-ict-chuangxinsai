@@ -92,6 +92,7 @@ class ValidateRequirementsTest(unittest.TestCase):
         request["departure_location"] = "用户确认的具体校区"
         request["location_resolution"] = {
             "status": "confirmed",
+            "confirmed_by_user": True,
             "departure_poi_id": "test-poi",
             "return_poi_id": None,
             "ambiguous_fields": [],
@@ -116,6 +117,13 @@ class ValidateRequirementsTest(unittest.TestCase):
     def test_date_only_does_not_imply_all_day_departure(self):
         request = complete_request()
         request["departure_location"] = "用户确认的具体出发地"
+        request["location_resolution"] = {
+            "status": "confirmed",
+            "confirmed_by_user": True,
+            "departure_poi_id": "test-poi",
+            "return_poi_id": None,
+            "ambiguous_fields": [],
+        }
         request["dates"]["departure_availability"] = {"status": "unknown", "earliest": None, "latest": None}
         result = validate_requirements(request)
         self.assertTrue(result["valid"])
@@ -143,6 +151,164 @@ class ValidateRequirementsTest(unittest.TestCase):
         request["departure_location"] = "用户确认的具体出发地"
         request["dates"]["departure_availability"] = {"status": "window", "earliest": "25:00", "latest": None}
         self.assertFalse(validate_requirements(request)["valid"])
+
+    # --- 地点歧义场景测试（通用机制，不针对单一例子写特判） ---
+
+    def _confirm_departure(self, request, poi_id="poi-1", source="user_pick"):
+        request["location_resolution"] = {
+            "status": "confirmed",
+            "confirmed_by_user": True,
+            "departure_poi_id": poi_id,
+            "return_poi_id": None,
+            "ambiguous_fields": [],
+            "confirmation_source": source,
+        }
+        request["dates"]["departure_availability"] = {"status": "flexible", "earliest": None, "latest": None}
+        return request
+
+    def test_city_only_departure_is_ambiguous_for_door_to_door(self):
+        # 用户只说"福州"：城市级位置，不能据此计算门到门接驳时间。
+        request = complete_request()
+        request["departure_location"] = "福州"
+        request["time_plan_required"] = True
+        request["location_resolution"] = {
+            "status": "ambiguous",
+            "departure_poi_id": None,
+            "return_poi_id": None,
+            "ambiguous_fields": ["departure_location.detail"],
+        }
+        result = validate_requirements(request)
+        self.assertTrue(result["valid"])
+        self.assertFalse(result["ready"])
+        self.assertIn("departure_location.detail", result["missing_fields"])
+
+    def test_multi_campus_university_ambiguous_blocks_ready(self):
+        # 福建农林大学多校区，未确认具体校区。
+        request = complete_request()
+        request["departure_location"] = "福建农林大学"
+        request["location_resolution"] = {
+            "status": "ambiguous",
+            "departure_poi_id": None,
+            "return_poi_id": None,
+            "ambiguous_fields": ["departure_location.detail"],
+        }
+        result = validate_requirements(request)
+        self.assertFalse(result["ready"])
+        self.assertIn("departure_location.detail", result["missing_fields"])
+
+    def test_multi_hospital_sites_ambiguous_blocks_ready(self):
+        # 某医院多院区，未确认具体院区。
+        request = complete_request()
+        request["departure_location"] = "某市第一医院"
+        request["location_resolution"] = {
+            "status": "ambiguous",
+            "departure_poi_id": None,
+            "return_poi_id": None,
+            "ambiguous_fields": ["departure_location.detail"],
+        }
+        result = validate_requirements(request)
+        self.assertFalse(result["ready"])
+        self.assertIn("departure_location.detail", result["missing_fields"])
+
+    def test_unique_address_confirmed_via_confirmation_source(self):
+        # 唯一明确地址，confirmed 但无 POI ID，靠 confirmation_source 也可。
+        request = complete_request()
+        request["departure_location"] = "福州市鼓楼区XX路1号"
+        self._confirm_departure(request, poi_id=None, source="user_typed_full_address")
+        result = validate_requirements(request)
+        self.assertTrue(result["valid"], result["errors"])
+        self.assertTrue(result["ready"], result["missing_fields"])
+
+    def test_confirmed_without_poi_or_source_is_invalid(self):
+        # 防谎报：confirmed 但既无 POI ID 也无 confirmation_source → invalid。
+        request = complete_request()
+        request["departure_location"] = "福建农林大学"
+        request["location_resolution"] = {
+            "status": "confirmed",
+            "confirmed_by_user": True,
+            "departure_poi_id": None,
+            "return_poi_id": None,
+            "ambiguous_fields": [],
+        }
+        result = validate_requirements(request)
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("confirmation_source" in e for e in result["errors"]))
+
+    def test_user_confirmed_specific_campus_then_ready(self):
+        # 用户确认具体校区后，保存 POI ID 与确认来源，ready。
+        request = complete_request()
+        request["departure_location"] = "福建农林大学大学城校区"
+        self._confirm_departure(request, poi_id="B0FFFAFJXX", source="user_pick_from_candidates")
+        result = validate_requirements(request)
+        self.assertTrue(result["valid"], result["errors"])
+        self.assertTrue(result["ready"], result["missing_fields"])
+
+    def test_user_changes_departure_resets_to_ambiguous(self):
+        # 用户后来更改出发地，未重新确认 → 重新 ambiguous，不复用旧 confirmed。
+        request = complete_request()
+        request["departure_location"] = "福建农林大学大学城校区"
+        self._confirm_departure(request, poi_id="B0FFFAFJXX", source="user_pick_from_candidates")
+        self.assertTrue(validate_requirements(request)["ready"])
+
+        request["departure_location"] = "福州站"  # 同名车站可能有多个入口/广场
+        request["location_resolution"] = {
+            "status": "ambiguous",
+            "departure_poi_id": None,
+            "return_poi_id": None,
+            "ambiguous_fields": ["departure_location.detail"],
+            "confirmation_source": None,
+        }
+        result = validate_requirements(request)
+        self.assertFalse(result["ready"])
+        self.assertIn("departure_location.detail", result["missing_fields"])
+
+    def test_city_level_research_allowed_without_time_plan(self):
+        # 不需要精确时间规划时，城市级出发地不阻断（可继续城市级研究）。
+        request = complete_request()
+        request["departure_location"] = "福州"
+        request["time_plan_required"] = False
+        request["location_resolution"] = {
+            "status": "unknown",
+            "departure_poi_id": None,
+            "return_poi_id": None,
+            "ambiguous_fields": [],
+        }
+        result = validate_requirements(request)
+        self.assertTrue(result["valid"])
+        self.assertTrue(result["ready"])
+
+    # --- confirmed_by_user 硬门禁：防止把搜索首条/主校区/分店静默当成用户确认 ---
+
+    def test_confirmed_by_user_true_while_ambiguous_is_invalid(self):
+        # 未确认（ambiguous）却置 confirmed_by_user=true → invalid。
+        request = complete_request()
+        request["departure_location"] = "福建农林大学"
+        request["location_resolution"] = {
+            "status": "ambiguous",
+            "confirmed_by_user": True,
+            "departure_poi_id": None,
+            "return_poi_id": None,
+            "ambiguous_fields": ["departure_location.detail"],
+        }
+        result = validate_requirements(request)
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("confirmed_by_user" in e for e in result["errors"]))
+
+    def test_confirmed_requires_confirmed_by_user_true(self):
+        # status=confirmed 但 confirmed_by_user 为 False/缺失 → invalid。
+        request = complete_request()
+        request["departure_location"] = "福建农林大学大学城校区"
+        request["location_resolution"] = {
+            "status": "confirmed",
+            "confirmed_by_user": False,
+            "departure_poi_id": "B0FFFAFJXX",
+            "return_poi_id": None,
+            "ambiguous_fields": [],
+            "confirmation_source": "user_pick",
+        }
+        result = validate_requirements(request)
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("confirmed_by_user" in e for e in result["errors"]))
 
 
 if __name__ == "__main__":

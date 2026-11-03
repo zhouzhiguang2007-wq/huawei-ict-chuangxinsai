@@ -14,7 +14,7 @@ Use this reference for incomplete prompts, complex constraints, follow-up change
 | Intercity transport included | Yes for a capped total | Ask if the answer changes affordability |
 | Earliest feasible outbound departure or departure window | When planning a specific outbound train or leave-home time | Ask; a travel date alone does not mean the traveler is free all day |
 | Arrival/return times | Needed for first/last day boundaries | Use confirmed services; otherwise ask when they change the feasible route, or mark the draft incomplete |
-| Origin city and actual start point | Yes for a complete door-to-door route | Ask after core fields if not supplied or derivable from confirmed transport |
+| Specific departure location (exact address, neighborhood, landmark, school, hotel, or station — not just a city) | Yes for a complete door-to-door route | Ask as early as possible, right after the destination, never just a city name; a city-level origin is too coarse to choose a station, compute first-leg time, or set a leave-home time |
 | End point or return service | Yes for a complete route | Ask after core fields if not supplied or derivable from confirmed transport |
 | Interests | Confirm after core fields | Derive only a tentative hypothesis from what the user said, then ask |
 | Walking/mobility | Ask if group composition or activities make it material | Keep unknown; do not assume everyone can walk moderately |
@@ -23,7 +23,17 @@ Use this reference for incomplete prompts, complex constraints, follow-up change
 | Sources/platforms | No | Public web plus official sources; add named platforms |
 | Output | No | Concise report in chat |
 
-Ask one question per turn in this order: destination, departure date, budget amount/scope, days, group size, then preference confirmation. After these, ask for the next material missing start/return point, fixed service or feasible departure window when needed to close a precise route. Skip known fields and accept volunteered answers to future questions. A preference inferred from “美食为主” or “想拍照” is a proposal, not an approved constraint. While awaiting an answer, research stable facts and photos, but leave the itinerary and computed package price pending. If the user wants an explicit demonstration, use a visible “假设情境” label and do not present it as the user's actual trip.
+Ask one question per turn in this order: destination, **specific departure location (exact address/neighborhood/landmark/school/hotel/station, not a city name)**, departure date, budget amount/scope, days, group size, then preference confirmation. After these, ask for the next material missing return point, fixed service or feasible departure window when needed to close a precise route. Never accept a city-level origin as the departure location; if the user only gives a city, ask once for the specific place within it before planning first-leg timing. Skip known fields and accept volunteered answers to future questions. A preference inferred from “美食为主” or “想拍照” is a proposal, not an approved constraint. While awaiting an answer, research stable facts and photos, but leave the itinerary and computed package price pending. If the user wants an explicit demonstration, use a visible “假设情境” label and do not present it as the user's actual trip.
+
+## Place ambiguity handling
+
+A named origin/return/key-transfer point may resolve to several real places: university campuses, hospital sites, chain-store branches, same-name attractions, stations or entrances. **City-level ≠ concrete origin**: "福州" only supports city-level research and cannot anchor a precise home-to-station leg, fare or赶车时刻. Rules:
+
+1. Preserve the user's exact wording; never silently pick the first map hit, most popular branch, main campus or a previous example.
+2. Only when the choice materially affects access time, fare, route or a deadline: **list a short candidate set (name + address) and ask one confirmation question**.
+3. Until the user confirms: mark the place `ambiguous` in `place_registry`, keep its `place_id`/`poi_id` `null`, and mark affected first/last-mile legs, fares and exact departure times `unknown`. City-level information that does not depend on the specific place may still be researched.
+4. After confirmation: save the full name, address, POI ID and `confirmation_source`, update `place_registry` to `confirmed`, re-query only the affected legs. Reuse the confirmed place in later turns unless the user explicitly changes it.
+5. If any place that affects a key leg stays `ambiguous`, the itinerary must not be marked `ready`/`pass`; `validate_route_timeline.py` will fail it. A `confirmed` place without a POI ID or `confirmation_source` is invalid; `validate_requirements.py` will fail it.
 
 ## Planning units
 

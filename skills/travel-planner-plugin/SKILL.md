@@ -32,6 +32,17 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 - 检索失败（索引未建/模型缺失/查询异常）：降级直接读子 skill 的 references 原文，不阻断流程，记录降级原因
 - RAG 索引未建时提示用户运行 `python rag/build_index.py`
 
+## 地点歧义阻断
+
+出发地、返回地或关键接驳点对应多个实际地点（校区、院区、分店、同名景点、车站或入口）且未由用户确认时，编排必须：
+
+1. 在 `travel-requirement-analysis` 阶段把该地点 `location_resolution.status` 标为 `ambiguous`，`poi_id` 保持 `null`，受影响的接驳时间、费用和精确出发时间标 `unknown`。可继续查询不依赖具体地点的城市级信息。
+2. 由 `multi-platform-travel-planner` 搜索并列出简短候选（名称+地址），只问用户一个确认问题；搜索结果排第一、带 POI ID、被称为主校区，都不等于用户确认。
+3. 用户未确认前，`location_resolution.confirmed_by_user=false`；走"询问具体地点"分支并等待回答，**禁止进入从该地点出发的路线计算、精确出门时间计算和最终行程输出分支**；禁止把行程标记为 `ready`/`pass`，禁止写入基于该地点的精确接驳时间、费用或赶车时刻。
+4. 用户明确选择后，才保存地点全称、地址、POI ID 和 `confirmation_source`，置 `confirmed_by_user=true`，更新 `place_registry` 为 `confirmed`，只重查受影响路线；后续对话复用已确认地点，**不得沿用旧会话中未经用户确认的历史地点（如上次默认的某个校区/院区/分店）**，除非用户明确修改。
+
+校验脚本（`validate_requirements.py`、`validate_route_timeline.py`）会强制上述规则：无 POI ID 或 `confirmation_source` 的 `confirmed` 无效；`ambiguous` 地点带精确时间或整体 `pass` 时 fail。
+
 ## 状态与证据交接
 
 保留需求状态：用户明确说的值、可推导的值、仍未知的值分别标记。每个易变事实记录来源、查询时间和适用日期。下游只把已核实价格当报价；估算与采购控制额单列。任何模块缺失或外部页面不可访问，保留该栏写"待核实"，不静默填空。
