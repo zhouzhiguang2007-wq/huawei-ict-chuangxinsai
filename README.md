@@ -9,12 +9,13 @@
 下载仓库 ZIP 或克隆仓库后，在**完整仓库根目录**运行：
 
 ```powershell
+python -m pip install pytest
 python scripts/run_checks.py
 python rag/scripts/validate_index.py
 python -m travel_shared --user-id demo-alice examples/shared-tools/get.json
 ```
 
-统一检查覆盖插件清单、九个 Skill、本地脚本、共享接口及 RAG 索引新鲜度。共享工具和这些检查只依赖 Python 3.9+ 标准库；RAG **重建及语义检索**另需安装 `sentence-transformers`、`numpy`、`pyyaml`。`get.json` 是虚构用户的只读示例；要避免保存演示数据，可给 CLI 添加 `--db` 指向临时数据库。
+统一检查覆盖插件清单、九个 Skill、本地脚本、共享接口、内部数据库测试及 RAG 索引新鲜度。共享工具运行只依赖 Python 3.9+ 标准库；完整测试另需 `pytest`（GitHub CI 会安装）。RAG **重建及语义检索**另需安装 `sentence-transformers`、`numpy`、`pyyaml`。`get.json` 是虚构用户的只读示例；要避免保存演示数据，可给 CLI 添加 `--db` 指向临时数据库。
 
 若修改了 `skills/**/SKILL.md`、Skill 的 `references/*.md`、`docs/*.md` 或 `rag/config.yaml`，索引会被标为过期。在编辑完成后运行：
 
@@ -26,6 +27,12 @@ python rag/retrieve.py "开封两天完整线路"
 ```
 
 构建优先复用本地模型缓存，缺少模型时会下载；`python rag/build_index.py --offline` 要求模型已缓存。检索默认只使用本地模型，缺缓存时会说明原因，不会反复联网。索引文件位于 `rag/index/`，应与本次改动一起提交。索引只收录 Skill 与公共工作流说明，不收录个人偏好数据库。
+
+## 两套 SQLite 数据
+
+长期偏好默认保存在 `~/.travel-planner/preferences.sqlite3`，可用 `TRAVEL_PREFERENCES_DB` 更改。新增的旅行常识、行程会话和 Skill 能力注册表保存在另一文件 `~/.travel-planner/internal.sqlite3`，可用 `TRAVEL_INTERNAL_DB` 更改；首次使用前运行 `python -m travel_shared.seed_knowledge` 建表并写入预置常识。两个路径都应指向宿主的持久化磁盘。
+
+预置常识提供规划起点，票价、天气、开放时间和班次仍须实时核实。内部常识、会话及注册表操作只供持有可信身份的 Python 宿主调用；公开 HTTP 与 AgentArts 桥接仅接受 `plugin.json` 中列出的六个共享操作。行程会话按可信用户身份隔离，升级前没有归属信息的旧会话行保留但不会自动认领，见[部署与联调说明](docs/deployment-readiness.md)。
 
 ## 在华为云码道本地加载
 

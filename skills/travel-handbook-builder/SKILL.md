@@ -9,6 +9,15 @@ description: "行迹手册生成器：把已复核的旅游行程、地点、餐
 
 读取[共享接口](../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。复用主编排快照和最终已复核行程，不重新读取记忆覆盖已确认结果。先 prepare，再按本模块原生 CLI 生成页面；共享 invoke 不写手册文件。仅将最终行程内容映射到手册输入，不导出 user_id、偏好档案、确认依据或工具认证信息。
 
+## 内部私有数据库
+
+生成手册前从会话上下文读取各 skill 产出的中间结果：
+- `session_get`：`{trip_id}` → 返回所有已存储的上下文条目（需求、候选景点、天气、住宿、拍照指导、复核结果）
+- `session_get_requirements`：`{trip_id}` → 直接获取已确认需求 JSON
+
+手册生成结果存入会话上下文：
+- `session_put`：`{trip_id, skill: "travel-handbook-builder", stage: "handbook_output", key: "handbook_path", value: <手册路径>}`
+
 ## 何时使用
 
 用户已有行程，希望把结果做成便于手机查看、分享或现场使用的交互旅行手册时使用。主规划与专项 Skill 负责研究和决策；本 Skill 负责把**已确认或明确标为草案**的数据做成页面。单纯问路线、住宿、景点、天气或拍照时，先由对应 Skill 回答。

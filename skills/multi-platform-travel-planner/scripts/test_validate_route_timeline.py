@@ -216,6 +216,48 @@ class RouteTimelineTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["status"], "pass")
 
+    # --- place_registry 地点歧义联动测试 ---
+
+    def test_ambiguous_start_place_with_precise_time_fails(self):
+        # 出发地 ambiguous 但写了精确起点时间 → fail，禁止编造接驳时间。
+        self.route["place_registry"] = {"luoyang-meeting": {"resolution": "ambiguous", "label": "某大学（多校区）"}}
+        result = validate_route(self.route)
+        self.assertEqual(result["status"], "fail", result)
+        self.assertIn("ambiguous_place_timing", rules(result, "fail"))
+
+    def test_ambiguous_place_in_transfer_leg_fails(self):
+        # 交通段引用 ambiguous 地点且带精确时间 → fail。
+        self.route["place_registry"] = {"attraction": {"resolution": "ambiguous", "label": "同名景点"}}
+        result = validate_route(self.route)
+        self.assertEqual(result["status"], "fail", result)
+        self.assertIn("ambiguous_place_timing", rules(result, "fail"))
+
+    def test_ambiguous_trip_start_place_fails(self):
+        # trip.start_place_id 为 ambiguous → fail，整体不得 pass。
+        self.route["place_registry"] = {"luoyang-meeting": {"resolution": "ambiguous", "label": "某大学"}}
+        self.route["daily_routes"][0]["start_anchor"]["at"] = None
+        self.route["daily_routes"][0]["segments"][0]["start"] = None
+        result = validate_route(self.route)
+        self.assertEqual(result["status"], "fail", result)
+        self.assertIn("ambiguous_place_timing", rules(result, "fail"))
+
+    def test_confirmed_place_registry_allows_pass(self):
+        # 所有地点 confirmed → 不触发歧义阻断，正常 pass。
+        self.route["place_registry"] = {
+            "luoyang-meeting": {"resolution": "confirmed", "label": "确认集合点"},
+            "attraction": {"resolution": "confirmed", "label": "确认景点"},
+            "hotel": {"resolution": "confirmed", "label": "确认酒店"},
+            "museum": {"resolution": "confirmed", "label": "确认博物馆"},
+            "luoyang-dropoff": {"resolution": "confirmed", "label": "确认送客点"},
+        }
+        result = validate_route(self.route)
+        self.assertEqual(result["status"], "pass", result)
+
+    def test_no_place_registry_does_not_block(self):
+        # 向后兼容：没有 place_registry 时不影响原有校验。
+        result = validate_route(self.route)
+        self.assertEqual(result["status"], "pass", result)
+
 
 if __name__ == "__main__":
     unittest.main()

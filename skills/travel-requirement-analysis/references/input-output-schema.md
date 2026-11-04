@@ -73,9 +73,11 @@
   "return_location": null,
   "location_resolution": {
     "status": "unknown",
+    "confirmed_by_user": false,
     "departure_poi_id": null,
     "return_poi_id": null,
-    "ambiguous_fields": []
+    "ambiguous_fields": [],
+    "confirmation_source": null
   },
   "unknown_fields": [],
   "derived_fields": [],
@@ -85,7 +87,11 @@
 
 未知对象字段使用 `null`，未知列表使用 `[]`。不要使用“随便”“正常”等文本代替未知值。
 
-`location_resolution.status` 可为 `unknown`、`ambiguous`、`confirmed`。当用户给出的出发地对应多个实际地点，而且这些差异影响门到门规划时，`departure_location` 保留原话，`status` 设为 `ambiguous`，`departure_poi_id` 保持 `null`，并在 `location_resolution.ambiguous_fields` 与 `unknown_fields` 中加入 `departure_location.detail`。地图候选只是供用户选择，不能自动将首条或最热门地点写成 `confirmed`。用户确认后记录具体名称；查到地图 POI ID 时再填入对应字段。返回地有歧义时，在两个列表中加入 `return_location.detail`。适用于校区、院区、分店、同名地点、站点和入口；对不影响路线的细节不额外追问。
+`location_resolution.status` 可为 `unknown`、`ambiguous`、`confirmed`；并配一个显式布尔 `confirmed_by_user`（默认 `false`）：只有**用户本人明确选择**后才置 `true`，任何由地图/搜索首条、已有 POI ID 或"主校区"标签推断出来的地点都必须保持 `confirmed_by_user=false`。**区分城市级位置与具体出发点**：用户说"福州"只够做城市级目的地研究，不能据此计算从住处到车站的精确接驳时间、费用或赶车时刻；只有具体到地址、小区、地标、学校校区、医院院区、酒店分店、车站或景区入口时，才能做门到门规划。
+
+当用户给出的出发地对应多个实际地点（校区、院区、分店、同名景点、车站或不同入口），且这些差异影响门到门路线、费用或赶车时间时：`departure_location` 保留原话，`status` 设为 `ambiguous`，`departure_poi_id` 保持 `null`，并在 `ambiguous_fields` 与 `unknown_fields` 中加入 `departure_location.detail`，`confirmed_by_user=false`。**先列出简短候选（名称+地址），只问用户一个确认问题**，不能默认第一条、最热门地点或主校区。地图候选只是供用户选择，不能自动将首条或最热门地点写成 `confirmed`；**搜索结果排第一、已有 POI ID、或被称为"主校区"都不等于用户确认**。用户未确认前只走"询问具体地点"分支并等待回答，不得进入从该地点出发的路线计算、精确出门时间或最终行程输出分支。返回地有歧义时，在两个列表中加入 `return_location.detail`。
+
+用户确认后，`status` 设为 `confirmed`，记录地点全称与地址，查到地图 POI ID 时填入 `departure_poi_id`/`return_poi_id`，并在 `confirmation_source` 记录确认来源（如"用户第2轮明确选择'大学城校区（闽侯上街）'"）。**`confirmed` 必须有 POI ID 或 `confirmation_source` 且 `confirmed_by_user=true`**，没有依据的 `confirmed` 视为无效——这防止把多义地点静默当成已确认。后续对话复用已确认地点，除非用户明确修改；**不得沿用旧会话中未经用户确认的历史地点记忆**。用户修改出发地时，若新地点仍多义，重新设为 `ambiguous` 并追问。对不影响路线的细节不额外追问。
 
 `dates.departure_availability` 记录用户在出发日**何时有空出门**，与 `dates.start_date` 分开。`status=unknown` 表示只知道日期，`earliest/latest` 为 `null`，并在 `unknown_fields` 加入 `dates.departure_availability`；`status=window` 表示用户给出可出发时段，边界用当地 `HH:MM`，至少有一个边界；`status=flexible` 仅在用户明确说当天时间灵活时使用。未问到时间不能把 `00:00–23:59` 当默认窗口。对于需要安排具体出门、赶车或跨城交通的完整行程，`unknown` 时先追问“当天最早几点可以出发，或大概哪个时段方便？”，不得输出精确出门时刻。
 

@@ -1,10 +1,12 @@
 # 项目共享接口与用户偏好记忆
 
-本文件是九个 Skill 及后续 Agent 的统一交接规范。数据库只保存明确确认的长期偏好；需求分析理解用户表达，主编排合并需求并分发同一份快照。Python 3.9+，运行与测试均仅使用标准库。现有各业务脚本和其原生 JSON 保持可用。
+本文件是九个 Skill 及后续 Agent 的统一交接规范。长期偏好库只保存明确确认的偏好；另有内部库保存旅行常识、行程会话和 Skill 能力。需求分析理解用户表达，主编排合并需求并分发同一份快照。Python 3.9+，运行只依赖标准库；完整测试另需 `pytest`。现有各业务脚本和其原生 JSON 保持可用。
 
 ## 安装与运行位置
 
 保留完整仓库，在仓库根执行 `python -m travel_shared`。SQLite 默认位于当前宿主用户的 `~/.travel-planner/preferences.sqlite3`；可通过 `--db` 或环境变量 `TRAVEL_PREFERENCES_DB` 指定持久化磁盘上的绝对路径。所有调用使用同一个路径。
+
+内部库默认位于 `~/.travel-planner/internal.sqlite3`，通过 `TRAVEL_INTERNAL_DB` 指定另一绝对路径。在可信宿主中先运行 `python -m travel_shared.seed_knowledge` 初始化三张表和预置内容。此库与长期偏好库分开，不能把其中的行程会话当作长期偏好。预置常识是静态参考；价格、天气、班次和开放信息每次使用时仍须核实。
 
 码道仍可平铺加载九个 Skill，但共享功能还需要保留仓库中的 `travel_shared/` 和 `docs/`。宿主将 `TRAVEL_SHARED_ROOT` 配置为完整仓库的绝对路径；平铺后的相对文档链接失效时，从该目录读取 `docs/shared-interface.md`，并在该目录运行工具。该环境变量是宿主路径约定，不会自动安装或注册工具。仅复制 Skill 文件夹不能安装共享工具。
 
@@ -24,6 +26,10 @@ AgentArts 云端节点不能访问开发者电脑路径。云端需访问下面�
 | clear | 无 | 清空当前用户偏好 |
 | prepare | context | 合并偏好、创建/复用快照、生成模块字段映射提示 |
 | invoke | context | 先 prepare，再执行支持的确定性计算脚本 |
+
+这六种是公开 HTTP 和 AgentArts 桥接允许的操作。内部库另有 `knowledge_*`、`session_*`、`registry_*` 和 `seed` 操作，只能由掌握可信用户身份的 Python 宿主直接调用 `TravelTools.handle`；HTTP 和 `travel_shared.tools.main` 桥接对这些操作返回拒绝，即使凭据允许修改长期偏好也不例外。Skill 中的内部库调用说明需要宿主实际接线，`plugin.json` 与 OpenAPI 不会自动注册这些私有操作。
+
+内部会话按可信 `user_id` 与 `trip_id` 共同隔离：同名行程编号不会使不同用户互相读取、覆盖或删除。升级前仅按 `trip_id` 保存、无法证明归属的旧会话行会保留在隔离区，不能由任意已登录用户自动认领；若需找回，应在核实所有者后由管理员单独迁移。
 
 示例，数据为虚构演示：
 
@@ -62,7 +68,7 @@ CLI 输出 UTF-8 JSON（包括 Windows 默认 GBK 终端），退出码为0、2�
 ```
 
 - `requirements` 沿用需求分析的完整对象，本例为简写，完整行程须通过需求校验。已有 AgentArts `requirements_json` 在可信宿主解析一次放入此字段，避免多层 JSON 字符串。
-- `trip_id` 由宿主生成并在同一行程中保持不变；工具不持久化行程、对话或进度。
+- `trip_id` 由宿主生成并在同一行程中保持不变；公开的 prepare/invoke 不持久化行程或对话。可信宿主显式使用内部 `session_*` 操作时可保存已确认需求和中间结果。
 - `skill` 使用 `plugin.json` 中九个现有名称，改成 Agent 后仍可保留这些路由标识。
 - `payload` 是目标计算脚本原生输入，不在共享工具中猜测缺失路线、报价、证据、订单或固定活动。
 - `prepare` 返回 `data.context` 和 `data.input_hints`。映射提示用于构建相应模块输入，不会自动覆盖 `payload`；复核的已确认硬约束在 `invoke` 中会实际覆盖原案和草案的对应要求。
@@ -130,12 +136,14 @@ python -m travel_shared.server --db ./data/preferences.sqlite3
 
 后端只提供 `POST /v1/tools`，Body 为上述请求 JSON，认证头 `Authorization: Bearer <token>`。服务端按 token 查用户身份，拒绝请求中的 user_id。简单的 `token: user_id` 条目**默认只读**，可用于 get/prepare/invoke；update/delete/clear 返回 403。只有显式 `{"user_id":"...","allow_memory_write":true}` 的写凭据才能修改长期偏好；写凭据应由已验证用户确认的可信后端持有，不能配置给可由模型自行调用的工具。`confirmed=true` 与 source 仍需由可信后端依据真实用户确认提交，不能由模型或网页自行声称。token 表适合受控 Demo；真实多用户应用由登录后端确定身份并调用 Python 接口，不能让所有用户共用一个固定身份 token。密钥放在平台工具的受保护配置中，不写进提示词、浏览器前端或仓库。
 
+`knowledge_*`、`session_*`、`registry_*` 和 `seed` 均为内部操作，HTTP 适配器一律返回 403，AgentArts 标量桥接返回 invalid。长期偏好写凭据也不解锁内部库。需要这些数据的 Skill 应由可信 Python 宿主在服务端调用 `TravelTools.handle`，不得把任意内部 action 开放为模型可填的 HTTP 参数。
+
 默认监听127.0.0.1，仅供本机验证。云端通过可达 HTTPS 入口和可信代理接入，将数据库放在同一台后端的持久化磁盘；不要把 db 放进无持久化的函数临时目录，也不要让多台机器直接共享打开 db 文件。服务使用短事务和5秒锁等待，低频写入使用 SQLite 默认日志模式。大规模多实例部署再迁移数据库，调用方接口保持不变。
 
 在 AgentArts 的工具配置中填写后端 HTTPS 地址、POST、JSON 请求及认证头，或依据 `contracts/tools.openapi.json` 导入（是否支持导入以实际控制台为准）。如平台只支持标量输入输出，可信后端调用 `travel_shared.tools.main({"request_json":"..."}, user_id=authenticated_user, db_path=...)`，得到 status/result_json；该桥接默认拒绝长期偏好写入。用户在可信后端确认长期保存/删除后，后端才单独传 `allow_memory_write=True`。不要把该参数或 user_id 暴露成模型可填字段。仓库不代替控制台完成注册、鉴权配置、云部署或 Demo 页面搭建。
 
 ## 验收
 
-运行 `python scripts/run_checks.py`：包括共享工具与 HTTP 联调、原有全部独立脚本测试和 Skill 清单校验。`examples/shared-tools/` 是模拟请求，可按 update → prepare → get → clear 顺序本地试跑。
+先安装测试依赖 `python -m pip install pytest`，再运行 `python scripts/run_checks.py`：包括共享工具与 HTTP 联调、内部数据库测试、原有独立脚本测试、插件/Skill 清单和索引新鲜度校验。`examples/shared-tools/` 是模拟请求，可按 update → prepare → get → clear 顺序本地试跑。
 
 平台验收：同一用户新会话仍记住；不同用户隔离；“这次快节奏”不覆盖长期慢节奏；改变长期偏好后下一轮生效；一轮多 Agent 快照一致；删除后新快照不再复用；数据库不可用继续问答但不宣称保存；演示复核失败时不交付为可执行行程。工具测试不能代替平台实际模型调用和部署验证。

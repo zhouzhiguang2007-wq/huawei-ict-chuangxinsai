@@ -1,4 +1,15 @@
-"""One tool interface for local skills and hosted agents; no model or network I/O."""
+"""One tool interface for local skills and hosted agents; no model or network I/O.
+
+Extended with internal private database actions:
+  - knowledge_query: query travel domain knowledge (Module A)
+  - knowledge_upsert: add/update knowledge entries (Module A)
+  - session_put: store interaction context / intermediate results (Module B)
+  - session_get: retrieve context for a trip (Module B)
+  - session_clear: delete context for a trip or stage (Module B)
+  - registry_query: match skills by query / list all skills (Module C)
+  - registry_get: get full metadata for one skill (Module C)
+  - seed: populate the internal database with pre-filled data
+"""
 
 import importlib.util
 import hashlib
@@ -11,19 +22,37 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .contracts import (VERSION, SKILLS, adapt_requirements, merge_preferences,
+from .contracts import (VERSION, SKILLS, KNOWLEDGE_CATEGORIES, REGISTRY_CATEGORIES,
+                        adapt_requirements, merge_preferences,
                         nonempty, object_value, validate_preferences)
 from .preferences import PreferenceStore
+from .knowledge import KnowledgeStore
+from .session import SessionStore
+from .registry import SkillRegistry
+from .db import DEFAULT_DB_PATH as DEFAULT_INTERNAL_DB
 
 
 DEFAULT_DB = Path(os.environ.get("TRAVEL_PREFERENCES_DB", "~/.travel-planner/preferences.sqlite3")).expanduser()
+PUBLIC_ACTIONS = frozenset({"get", "update", "delete", "clear", "prepare", "invoke"})
+INTERNAL_ACTIONS = frozenset({
+    "knowledge_query", "knowledge_upsert", "knowledge_categories",
+    "session_put", "session_get", "session_get_requirements", "session_list_trips",
+    "session_clear_trip", "session_clear_stage",
+    "registry_query", "registry_get", "registry_list", "registry_dependencies",
+    "seed",
+})
 
 
 class TravelTools:
     """Construct once in a trusted host; user_id is never extracted from model text."""
 
-    def __init__(self, db_path=DEFAULT_DB, *, snapshot_secret=None, clock=None):
+    def __init__(self, db_path=DEFAULT_DB, internal_db_path=None, *,
+                 snapshot_secret=None, clock=None):
         self.store = PreferenceStore(db_path)
+        self.internal_db = internal_db_path or DEFAULT_INTERNAL_DB
+        self.knowledge = KnowledgeStore(self.internal_db)
+        self.session = SessionStore(self.internal_db)
+        self.registry = SkillRegistry(self.internal_db)
         secret = snapshot_secret if snapshot_secret is not None else os.environ.get("TRAVEL_SNAPSHOT_SECRET")
         if secret is None:
             secret = secrets.token_bytes(32)
@@ -41,24 +70,44 @@ class TravelTools:
         message = json.dumps(canonical, ensure_ascii=False, sort_keys=True,
                              separators=(",", ":")).encode("utf-8")
         return hmac.new(self._snapshot_secret, message, hashlib.sha256).hexdigest()
-
     def handle(self, request, *, user_id):
         action = request.get("action") if isinstance(request, dict) else None
         try:
             nonempty(user_id, "trusted user_id")
             object_value(request, "request")
             allowed = {
+                # preference actions
                 "get": {"action"},
                 "update": {"action", "preferences", "confirmed", "source"},
                 "delete": {"action", "fields"},
                 "clear": {"action"},
                 "prepare": {"action", "context"},
                 "invoke": {"action", "context"},
+                # knowledge actions (Module A)
+                "knowledge_query": {"action", "category", "key", "keyword"},
+                "knowledge_upsert": {"action", "category", "key", "value", "source"},
+                "knowledge_categories": {"action"},
+                # session actions (Module B)
+                "session_put": {"action", "trip_id", "skill", "stage", "key", "value"},
+                "session_get": {"action", "trip_id", "skill", "stage", "key"},
+                "session_get_requirements": {"action", "trip_id"},
+                "session_list_trips": {"action"},
+                "session_clear_trip": {"action", "trip_id"},
+                "session_clear_stage": {"action", "trip_id", "skill", "stage"},
+                # registry actions (Module C)
+                "registry_query": {"action", "query"},
+                "registry_get": {"action", "skill_name"},
+                "registry_list": {"action"},
+                "registry_dependencies": {"action", "skill_name"},
+                # seed action
+                "seed": {"action"},
             }
             if not isinstance(action, str) or action not in allowed:
                 raise ValueError("unsupported action")
             if request.keys() - allowed[action]:
                 raise ValueError("unexpected request fields (identity is supplied by the host)")
+
+            # --- preference actions ---
             if action == "get":
                 data = self.store.get(user_id)
             elif action == "update":
@@ -70,16 +119,93 @@ class TravelTools:
                 data = self.store.delete(user_id, request["fields"])
             elif action == "clear":
                 data = self.store.delete(user_id)
-            else:
+            elif action in ("prepare", "invoke"):
                 data, warnings = self._prepare(request.get("context"), user_id)
                 if action == "invoke":
                     data["result"] = self._invoke(data["context"])
                 return self._result(action, "ok", data, warnings)
+
+            # --- knowledge actions (Module A) ---
+            elif action == "knowledge_query":
+                data = self.knowledge.query(
+                    category=request.get("category"),
+                    key=request.get("key"),
+                    keyword=request.get("keyword"),
+                )
+            elif action == "knowledge_upsert":
+                cat = request.get("category")
+                if cat not in KNOWLEDGE_CATEGORIES:
+                    raise ValueError("unsupported knowledge category: " + str(cat))
+                nonempty(request.get("key"), "key")
+                data = self.knowledge.upsert(
+                    cat, request["key"], request["value"],
+                    request.get("source", "user"),
+                )
+            elif action == "knowledge_categories":
+                data = self.knowledge.categories()
+
+            # --- session actions (Module B) ---
+            elif action == "session_put":
+                nonempty(request.get("trip_id"), "trip_id")
+                if request.get("skill") not in SKILLS:
+                    raise ValueError("unsupported skill")
+                nonempty(request.get("stage"), "stage")
+                nonempty(request.get("key"), "key")
+                data = self.session.put(
+                    request["trip_id"], request["skill"],
+                    request["stage"], request["key"], request["value"],
+                    user_id=user_id,
+                )
+            elif action == "session_get":
+                nonempty(request.get("trip_id"), "trip_id")
+                data = self.session.get(
+                    request["trip_id"],
+                    skill=request.get("skill"),
+                    stage=request.get("stage"),
+                    key=request.get("key"),
+                    user_id=user_id,
+                )
+            elif action == "session_get_requirements":
+                nonempty(request.get("trip_id"), "trip_id")
+                data = self.session.get_requirements(request["trip_id"], user_id=user_id)
+            elif action == "session_list_trips":
+                data = self.session.list_trips(user_id=user_id)
+            elif action == "session_clear_trip":
+                nonempty(request.get("trip_id"), "trip_id")
+                data = self.session.clear_trip(request["trip_id"], user_id=user_id)
+            elif action == "session_clear_stage":
+                nonempty(request.get("trip_id"), "trip_id")
+                if request.get("skill") not in SKILLS:
+                    raise ValueError("unsupported skill")
+                nonempty(request.get("stage"), "stage")
+                data = self.session.clear_stage(
+                    request["trip_id"], request["skill"], request["stage"],
+                    user_id=user_id,
+                )
+
+            # --- registry actions (Module C) ---
+            elif action == "registry_query":
+                nonempty(request.get("query"), "query")
+                data = self.registry.match(request["query"])
+            elif action == "registry_get":
+                nonempty(request.get("skill_name"), "skill_name")
+                data = self.registry.get(request["skill_name"])
+            elif action == "registry_list":
+                data = self.registry.list_all()
+            elif action == "registry_dependencies":
+                nonempty(request.get("skill_name"), "skill_name")
+                data = self.registry.dependencies(request["skill_name"])
+
+            # --- seed action ---
+            elif action == "seed":
+                from .seed_knowledge import seed_all
+                data = seed_all(self.internal_db)
+
             return self._result(action, "ok", data)
         except (ValueError, TypeError, KeyError, AttributeError, OverflowError) as exc:
             return self._result(action, "invalid", errors=[str(exc)])
         except (OSError, sqlite3.Error):
-            return self._result(action, "unavailable", errors=["工具或偏好存储不可用；未确认保存成功。"])
+            return self._result(action, "unavailable", errors=["工具或存储不可用；未确认保存成功。"])
 
     @staticmethod
     def _result(action, status, data=None, warnings=None, errors=None):
@@ -193,7 +319,11 @@ def main(args, *, user_id, db_path=DEFAULT_DB, allow_memory_write=False):
     except (KeyError, TypeError, ValueError):
         result = tools._result(None, "invalid", errors=["request_json must contain JSON"])
     else:
-        if (isinstance(request, dict) and request.get("action") in {"update", "delete", "clear"}
+        action = request.get("action") if isinstance(request, dict) else None
+        if isinstance(action, str) and action not in PUBLIC_ACTIONS:
+            result = tools._result(action, "invalid",
+                                   errors=["this action is not available through the AgentArts bridge"])
+        elif (isinstance(action, str) and action in {"update", "delete", "clear"}
                 and allow_memory_write is not True):
             result = tools._result(request.get("action"), "invalid",
                                    errors=["memory changes require trusted host authorization"])

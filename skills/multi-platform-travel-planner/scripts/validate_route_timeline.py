@@ -321,6 +321,51 @@ def validate_route(payload):
             check("overnight_time", "pass" if previous["last_at"] <= current["first_at"] else "fail",
                   "次日起点不得早于前一天终点")
 
+    # 地点歧义与精确时间联动校验。place_registry 可选，标记每个 place_id 的确认状态。
+    # 引用 ambiguous 地点的锚点或交通段不得写精确时间，否则路线会基于未确认的具体地点
+    # （校区/院区/分店/同名景点/入口）编造接驳时间、费用或赶车时刻。
+    registry = payload.get("place_registry")
+    ambiguous_places = set()
+    if isinstance(registry, dict):
+        for pid, info in registry.items():
+            if isinstance(info, dict) and info.get("resolution") == "ambiguous":
+                ambiguous_places.add(str(pid))
+    if ambiguous_places:
+        if isinstance(trip, dict):
+            for field in ("start_place_id", "end_place_id"):
+                pid = trip.get(field)
+                if isinstance(pid, str) and pid in ambiguous_places:
+                    check("ambiguous_place_timing", "fail",
+                          "trip." + field + " 引用未确认地点 " + pid + "，不得生成精确路线")
+        for route_index, route in enumerate(routes):
+            if not isinstance(route, dict):
+                continue
+            prefix = "daily_routes[{}]".format(route_index)
+            for anchor_key in ("start_anchor", "end_anchor"):
+                anchor = route.get(anchor_key)
+                if isinstance(anchor, dict):
+                    pid = anchor.get("place_id")
+                    at = anchor.get("at")
+                    if isinstance(pid, str) and pid in ambiguous_places and at is not None:
+                        check("ambiguous_place_timing", "fail",
+                              prefix + "." + anchor_key + " 引用未确认地点 " + pid + "，不得写精确时间")
+            for seg_index, seg in enumerate(route.get("segments") or []):
+                if not isinstance(seg, dict):
+                    continue
+                label = prefix + ".segments[{}]".format(seg_index)
+                kind = seg.get("kind")
+                seg_places = []
+                if kind == "transfer":
+                    seg_places.append(("from_place_id", seg.get("from_place_id")))
+                    seg_places.append(("to_place_id", seg.get("to_place_id")))
+                else:
+                    seg_places.append(("place_id", seg.get("place_id")))
+                for field_name, pid in seg_places:
+                    if isinstance(pid, str) and pid in ambiguous_places:
+                        if seg.get("start") is not None or seg.get("end") is not None:
+                            check("ambiguous_place_timing", "fail",
+                                  label + "." + field_name + " 引用未确认地点 " + pid + "，不得写精确接驳时间")
+
     statuses = [item["status"] for item in report["checks"]]
     report["status"] = ("invalid" if report["errors"] else "fail" if "fail" in statuses
                         else "incomplete" if "unknown" in statuses else "pass")

@@ -152,6 +152,8 @@ def validate_requirements(data: Any) -> Dict[str, Any]:
         })
 
     location_resolution = data.get("location_resolution")
+    departure_location = data.get("departure_location")
+    return_location = data.get("return_location")
     if location_resolution is not None:
         if not isinstance(location_resolution, dict):
             errors.append("location_resolution must be an object or null")
@@ -159,12 +161,57 @@ def validate_requirements(data: Any) -> Dict[str, Any]:
             location_status = location_resolution.get("status", "unknown")
             if location_status not in ALLOWED_LOCATION_STATUS:
                 errors.append("location_resolution.status is not supported")
-            elif location_status == "ambiguous" and task_scope == "full_trip":
+            else:
                 ambiguous_fields = location_resolution.get("ambiguous_fields", [])
                 if not isinstance(ambiguous_fields, list) or any(not isinstance(item, str) for item in ambiguous_fields):
                     errors.append("location_resolution.ambiguous_fields must be an array of strings")
-                else:
+                if location_status == "ambiguous" and task_scope == "full_trip":
                     missing.extend(ambiguous_fields or ["location_resolution"])
+                confirmed_by_user = location_resolution.get("confirmed_by_user")
+                if confirmed_by_user is not None and not isinstance(confirmed_by_user, bool):
+                    errors.append("location_resolution.confirmed_by_user must be a boolean")
+                # 硬门禁：未获用户确认（status 为 unknown/ambiguous）时不得置 confirmed_by_user=true；
+                # confirmed 必须由用户确认驱动（confirmed_by_user=true），防止把搜索首条/主校区/分店静默当成已确认。
+                if location_status in {"unknown", "ambiguous"} and confirmed_by_user is True:
+                    errors.append(
+                        "location_resolution.confirmed_by_user must be false unless status=confirmed; "
+                        "search rank 1, an existing POI ID, or a 'main campus' never equals user confirmation"
+                    )
+                if location_status == "confirmed" and confirmed_by_user is not True:
+                    errors.append(
+                        "location_resolution.status=confirmed requires confirmed_by_user=true"
+                    )
+                confirmation_source = location_resolution.get("confirmation_source")
+                if confirmation_source is not None and not isinstance(confirmation_source, str):
+                    errors.append("location_resolution.confirmation_source must be a string or null")
+                # confirmed 必须有 POI ID 或确认来源，防止把多义地点（校区/院区/分店/同名景点）
+                # 静默当成已确认的精确地点。没有依据的 confirmed 视为无效。
+                if location_status == "confirmed":
+                    departure_poi = location_resolution.get("departure_poi_id")
+                    return_poi = location_resolution.get("return_poi_id")
+                    if departure_location is not None and not departure_poi and not confirmation_source:
+                        errors.append(
+                            "location_resolution.status=confirmed requires departure_poi_id or "
+                            "confirmation_source; do not silently pick a default campus/branch/entrance"
+                        )
+                    if return_location is not None and not return_poi and not confirmation_source:
+                        errors.append(
+                            "location_resolution.status=confirmed requires return_poi_id or "
+                            "confirmation_source; do not silently pick a default branch/entrance"
+                        )
+                # 出发/返回地非空但状态未知，且本次需要精确时间规划 → 阻断，
+                # 因为未确认的具体地点无法计算门到门接驳时间、费用或赶车时刻。
+                if location_status == "unknown" and task_scope == "full_trip" and time_plan_required:
+                    if departure_location is not None and "departure_location.detail" not in missing:
+                        missing.append("departure_location.detail")
+                    if return_location is not None and "return_location.detail" not in missing:
+                        missing.append("return_location.detail")
+    elif time_plan_required and task_scope == "full_trip":
+        # 给了出发地却没有 location_resolution，视为未确认。
+        if departure_location is not None:
+            missing.append("departure_location.detail")
+        if return_location is not None:
+            missing.append("return_location.detail")
 
     departure_time_unknown = departure_availability is None or (
         isinstance(departure_availability, dict) and departure_availability.get("status", "unknown") == "unknown"

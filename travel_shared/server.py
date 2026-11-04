@@ -7,7 +7,7 @@ import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .contracts import nonempty
-from .tools import DEFAULT_DB, TravelTools
+from .tools import DEFAULT_DB, INTERNAL_ACTIONS, PUBLIC_ACTIONS, TravelTools
 
 
 def make_server(address, tools, tokens):
@@ -60,7 +60,13 @@ def make_server(address, tools, tokens):
             except (ValueError, UnicodeError, OSError):
                 self.respond(400, {"status": "invalid", "errors": ["invalid JSON request or size"]})
                 return
-            if (isinstance(request, dict) and request.get("action") in {"update", "delete", "clear"}
+            action = request.get("action") if isinstance(request, dict) else None
+            if isinstance(action, str) and action not in PUBLIC_ACTIONS:
+                code = 403 if action in INTERNAL_ACTIONS else 400
+                self.respond(code, {"status": "forbidden" if code == 403 else "invalid",
+                                    "errors": ["action is not available through this HTTP adapter"]})
+                return
+            if (isinstance(action, str) and action in {"update", "delete", "clear"}
                     and not principal["allow_memory_write"]):
                 self.respond(403, {"status": "forbidden",
                                    "errors": ["memory changes require a trusted write credential"]})

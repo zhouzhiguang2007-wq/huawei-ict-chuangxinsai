@@ -11,6 +11,17 @@ description: 根据旅行目的地、日期、入住人数和预算，研究住�
 
 帮助用户决定住哪里、选哪家以及选择哪个预订方案。输出可追溯的比较依据，区分已核实事实、估算和未知信息。支持独立对话或接收旅游工作流的结构化需求。
 
+## 内部私有数据库
+
+执行前先查询住宿常识和预算参考：
+- `knowledge_query`：`{category: "accommodation_type", key: "<类型>"}` → 返回价格区间、特征、适用人群、预订平台
+- `knowledge_query`：`{category: "budget_reference", key: "<档次>"}` → 返回住宿/餐饮/交通/门票的日均预算参考
+- `knowledge_query`：`{category: "city_info", key: "<城市>"}` → 返回交通概况（景区分布影响住宿选址）
+
+住宿比价结果存入会话上下文：
+- `session_put`：`{trip_id, skill: "travel-accommodation-advisor", stage: "intermediate", key: "accommodation_options", value: <候选住宿>}`
+- `session_get`：读取上游已确认的需求（日期、人数、预算）
+
 ## 1. 确定需求和模式
 
 先读 [输入输出契约](references/input-output-schema.md)。复用上游已确认需求，只询问影响当前任务的缺失信息，不重复收集。区分区域建议、酒店筛选、同酒店比价、附近住宿四种模式。

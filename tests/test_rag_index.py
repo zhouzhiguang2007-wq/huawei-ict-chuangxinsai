@@ -100,12 +100,12 @@ class RagIndexTests(unittest.TestCase):
         (self.index / "meta.json").write_text('{"n":1,"dim":2}', encoding="utf-8")
         self.assertEqual(check_index(self.index, self.skills, self.config)["status"], "stale")
 
-    def test_gbk_console_gets_ascii_safe_json(self):
+    def test_gbk_console_gets_utf8_json(self):
         buffer = io.BytesIO()
         output = io.TextIOWrapper(buffer, encoding="gbk", write_through=True)
         with patch.object(sys, "stdout", output):
             emit_json({"text": "￥价格 ¥"})
-        result = json.loads(buffer.getvalue().decode("gbk"))
+        result = json.loads(buffer.getvalue().decode("utf-8"))
         self.assertEqual(result["text"], "￥价格 ¥")
 
     def test_cached_model_is_tried_before_network(self):

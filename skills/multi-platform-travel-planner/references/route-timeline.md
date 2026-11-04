@@ -37,6 +37,7 @@
 - `trip`: 已确认的 `start_date`、`end_date`、`days`，以及整段旅行的 `start_place_id` 和 `end_place_id`。
 - `daily_routes[]`: 每天的 `date`、`start_anchor`、`end_anchor` 和按时间排序的 `segments[]`。锚点为 `{at, place_id}`，`at` 用带时区的 ISO 时间。
 - 每个 segment 有唯一 `id`、`kind`、`start`、`end`。`kind` 可为 `gather`、`transfer`、`visit`、`meal`、`rest`、`check_in`、`check_out`、`free_time`、`other`。非交通段用 `place_id`；交通段用 `from_place_id`、`to_place_id`、`mode`。游览段再给 `visit_minutes` 和至少两条具体 `highlights`。未知值写 `null`，不填零。
+- 可选 `place_registry`：`{place_id: {"resolution": "confirmed"|"ambiguous"|"unknown", "label": "福建农林大学大学城校区"}}`。出发地/返回地/关键接驳点对应多个实际地点（校区、院区、分店、同名景点、车站或入口）且尚未由用户确认时，标 `ambiguous`。校验器会检查：引用 `ambiguous` 地点的锚点或交通段不得写精确时间，`trip.start_place_id`/`end_place_id` 为 `ambiguous` 时整体不得 `pass`。这防止基于未确认具体地点编造接驳时间、费用或赶车时刻。用户确认后更新为 `confirmed` 并重查受影响路线。
 
 校验器检查日期是否齐全、起终锚点、地点链、时间顺序与冲突、游览分钟数、未解释的长空档及连续日期的衔接。它不能证明地图时长、开放/演出、推荐内容或价格真实。针对这些事实，保留来源、查询时间与人工判断，并把计划适配到 `travel-plan-review` 的活动/legs 契约做时间、营业、预约和预算复检。
 

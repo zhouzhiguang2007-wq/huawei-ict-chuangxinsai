@@ -54,6 +54,27 @@ class SharedToolsTest(unittest.TestCase):
                          {"pace": "relaxed"})
         self.assertEqual(self.call("get", "bob")["data"]["preferences"], {})
 
+    def test_internal_sessions_follow_trusted_user_identity(self):
+        tools = TravelTools(self.db, internal_db_path=Path(self.temp.name) / "internal.sqlite3")
+        request = {"action": "session_put", "trip_id": "same-trip",
+                   "skill": "travel-requirement-analysis", "stage": "confirmed",
+                   "key": "requirements", "value": {"destination": "alice-only"}}
+        self.assertEqual(tools.handle(request, user_id="alice")["status"], "ok")
+        self.assertEqual(tools.handle({"action": "session_get", "trip_id": "same-trip"},
+                                      user_id="bob")["data"]["count"], 0)
+        self.assertEqual(tools.handle({"action": "session_list_trips"},
+                                      user_id="bob")["data"]["trips"], [])
+        self.assertEqual(tools.handle({"action": "session_clear_trip", "trip_id": "same-trip"},
+                                      user_id="bob")["data"]["deleted"], 0)
+        self.assertEqual(tools.handle({"action": "session_get", "trip_id": "same-trip"},
+                                      user_id="alice")["data"]["entries"][0]["value"],
+                         {"destination": "alice-only"})
+        request["value"] = {"destination": "bob-only"}
+        self.assertEqual(tools.handle(request, user_id="bob")["status"], "ok")
+        self.assertEqual(tools.handle({"action": "session_get", "trip_id": "same-trip"},
+                                      user_id="alice")["data"]["entries"][0]["value"],
+                         {"destination": "alice-only"})
+
     def test_update_validates_atomically(self):
         self.save({"pace": "relaxed"})
         for prefs in ({"pace": "intensive", "budget": 100}, {"dates": "tomorrow"},
@@ -272,6 +293,12 @@ class SharedToolsTest(unittest.TestCase):
                               db_path=self.db)["status"], "invalid")
         self.assertEqual(main({"request_json": json.dumps(change)}, user_id="alice",
                               db_path=self.db, allow_memory_write=True)["status"], "ok")
+        for internal_action in ("session_list_trips", "knowledge_query", "seed"):
+            result = main({"request_json": json.dumps({"action": internal_action})},
+                          user_id="alice", db_path=self.db, allow_memory_write=True)
+            self.assertEqual(result["status"], "invalid")
+        self.assertEqual(main({"request_json": '{"action":[]}'}, user_id="alice",
+                              db_path=self.db)["status"], "invalid")
 
     def test_cli_emits_utf8_json_on_gbk_host(self):
         request_file = Path(self.temp.name) / "request.json"
@@ -322,6 +349,13 @@ class HTTPTest(unittest.TestCase):
                 self.assertEqual(post({"action": "get"}, "alice-secret")["data"]["preferences"]["pace"], "relaxed")
                 with self.assertRaises(HTTPError) as error:
                     post({"action": "get", "user_id": "alice"}, "bob-secret")
+                self.assertEqual(error.exception.code, 400)
+                for internal_action in ("session_list_trips", "knowledge_query", "seed"):
+                    with self.assertRaises(HTTPError) as error:
+                        post({"action": internal_action}, "alice-write-secret")
+                    self.assertEqual(error.exception.code, 403)
+                with self.assertRaises(HTTPError) as error:
+                    post({"action": []}, "alice-secret")
                 self.assertEqual(error.exception.code, 400)
             finally:
                 server.shutdown()

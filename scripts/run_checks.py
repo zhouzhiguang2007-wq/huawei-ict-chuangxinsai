@@ -1,5 +1,9 @@
-"""Run package, Skill, shared-tool, and RAG freshness checks."""
+"""Run all repository, Skill, plugin and RAG checks.
 
+Install the test-only dependency first: python -m pip install pytest
+"""
+
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -9,7 +13,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
-    commands = [[sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"]]
+    if importlib.util.find_spec("pytest") is None:
+        print("Full checks require pytest; run: python -m pip install pytest",
+              file=sys.stderr)
+        return 2
+    commands = [[sys.executable, "-m", "pytest", "tests", "-q"]]
     commands += [[sys.executable, str(path)] for path in sorted(ROOT.glob("skills/*/scripts/test_*.py"))]
     commands.append([sys.executable, "scripts/validate_plugin_manifest.py"])
     commands.append([sys.executable, "rag/scripts/validate_skill_manifest.py"])

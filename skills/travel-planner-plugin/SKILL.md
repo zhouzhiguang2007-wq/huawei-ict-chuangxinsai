@@ -32,11 +32,39 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 - 临时空档且原行程无冲突 → `travel-time-pocket`；原行程已冲突则先 `travel-replanner`
 - 现场拍照/选片 → 直接 `x-xiake`，复用既有景点与人数，不重问整个旅行预算
 
+## 内部私有数据库
+
+插件内置三个私有 SQLite 模块（不公开、不暴露，只服务于插件内 skill）。首次使用前运行 `python -m travel_shared.seed_knowledge` 初始化。
+
+**模块 A — 旅行常识库**：skill 执行前先查询领域常识，避免空跑。
+- `knowledge_query` action：按 category+key 精确查询，或按 keyword 模糊检索
+- 分类：city_info、intercity_transport、budget_reference、accommodation_type、local_food、photo_spot、season_tip、transit_tip
+
+**模块 B — 会话上下文存储**：需求分析确认的参数和各 skill 产出的中间结果按 trip_id 关联，下游 skill 直接读取而不重问。
+- `session_put` / `session_get` / `session_get_requirements` action
+
+**模块 C — skill 能力注册表**：比标题更详细的能力描述、触发关键词、依赖关系。编排器用它决定调用哪些 skill，比 RAG 标题匹配更精准。
+- `registry_query` action：按用户查询匹配相关 skill
+- `registry_list` action：列出全部 9 个 skill 的完整能力描述
+
+调用方式：通过共享工具 `TravelTools.handle(request, user_id=...)` 发送 action 请求。
+
 ## RAG 软前置规则
 
 - 检索成功：把 top-k chunk 注入当前子 skill 上下文作为规范提示
 - 检索失败或索引提示与当前 Skill 不一致：直接读子 skill 的 `SKILL.md` 与相关 references 原文，不阻断流程，记录降级原因；以当前原文为准，不让旧索引覆盖新规则
 - RAG 索引未建时提示用户运行 `python rag/build_index.py`
+
+## 地点歧义阻断
+
+出发地、返回地或关键接驳点对应多个实际地点（校区、院区、分店、同名景点、车站或入口）且未由用户确认时，编排必须：
+
+1. 在 `travel-requirement-analysis` 阶段把该地点 `location_resolution.status` 标为 `ambiguous`，`poi_id` 保持 `null`，受影响的接驳时间、费用和精确出发时间标 `unknown`。可继续查询不依赖具体地点的城市级信息。
+2. 由 `multi-platform-travel-planner` 搜索并列出简短候选（名称+地址），只问用户一个确认问题；搜索结果排第一、带 POI ID、被称为主校区，都不等于用户确认。
+3. 用户未确认前，`location_resolution.confirmed_by_user=false`；走"询问具体地点"分支并等待回答，**禁止进入从该地点出发的路线计算、精确出门时间计算和最终行程输出分支**；禁止把行程标记为 `ready`/`pass`，禁止写入基于该地点的精确接驳时间、费用或赶车时刻。
+4. 用户明确选择后，才保存地点全称、地址、POI ID 和 `confirmation_source`，置 `confirmed_by_user=true`，更新 `place_registry` 为 `confirmed`，只重查受影响路线；后续对话复用已确认地点，**不得沿用旧会话中未经用户确认的历史地点（如上次默认的某个校区/院区/分店）**，除非用户明确修改。
+
+校验脚本（`validate_requirements.py`、`validate_route_timeline.py`）会强制上述规则：无 POI ID 或 `confirmation_source` 的 `confirmed` 无效；`ambiguous` 地点带精确时间或整体 `pass` 时 fail。
 
 ## 状态与证据交接
 

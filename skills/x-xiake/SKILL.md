@@ -10,6 +10,16 @@ language: zh
 
 接收统一 context；独立拍照先由宿主 prepare。读取[共享接口](../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。复用 photo_styles 和 photo_social_preference，当前拍摄人数、关系、地点与光线以本次为准。仅凭历史旅行人数不确定拍摄人数。使用 prepare 的提示后执行下述模型与图像工作流，共享 invoke 不生成图片；长期偏好修改交由需求分析与宿主确认保存。
 
+## 内部私有数据库
+
+执行前先查询拍照机位常识：
+- `knowledge_query`：`{category: "photo_spot", key: "<景点名>"}` → 返回经典机位、最佳拍摄时间、拍摄提示
+- `knowledge_query`：`{category: "city_info", key: "<城市>"}` → 返回知名景点列表（辅助识别地标）
+
+拍照指导结果存入会话上下文，供报告合成和手册生成复用：
+- `session_put`：`{trip_id, skill: "x-xiake", stage: "intermediate", key: "photo_guides", value: <拍照指导图列表>}`
+- `session_get`：读取上游已确认的景点和人数
+
 ## 何时使用
 
 用户到了景点想把人拍好，但同伴不会拍、又不想找陌生人时使用。根据位置、人数、关系、风格、社恐等级和光线环境，给出机位焦段、姿势方案、给拍摄者的口语化指令和避坑提示；拍完发照片来做选片、调色建议和朋友圈文案。

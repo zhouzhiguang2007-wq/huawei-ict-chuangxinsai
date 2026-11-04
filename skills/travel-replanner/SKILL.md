@@ -11,6 +11,17 @@ description: 在已有旅游行程基础上，应对晚出发、天气变化、�
 
 基于当前真实进度和变化原因调整未来行程，输出明确的变更及验证结果。保留原案和草案，不能将生成草案等同于用户已接受或已改变订单。
 
+## 内部私有数据库
+
+重排时可查询旅行常识辅助判断替代方案：
+- `knowledge_query`：`{category: "city_info", key: "<城市>"}` → 返回知名景点（替代闭园景点）
+- `knowledge_query`：`{category: "intercity_transport", key: "<路线>"}` → 返回交通方式和耗时
+- `knowledge_query`：`{category: "season_tip", key: "<季节>"}` → 返回当季注意事项
+
+重排结果存入会话上下文：
+- `session_put`：`{trip_id, skill: "travel-replanner", stage: "intermediate", key: "replanned_itinerary", value: <重排行程>}`
+- `session_get`：读取原始行程和上游需求
+
 ## 1. 建立当前状态
 
 先读取 [数据契约](references/input-output-schema.md)。复用已有旅游需求、活动ID、地点、费用、预约、固定返程信息；没有原行程时先请上游提供，不能冒充从原案做增量修改。

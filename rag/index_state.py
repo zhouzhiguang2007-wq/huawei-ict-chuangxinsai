@@ -106,8 +106,10 @@ def check_index(index_dir, corpus_root, config_path):
 
 
 def emit_json(value):
-    """Write readable UTF-8 JSON where possible, ASCII-safe JSON on GBK consoles."""
+    """Emit UTF-8 JSON even when Windows starts Python with a GBK console."""
     payload = json.dumps(value, ensure_ascii=False, allow_nan=False, indent=2)
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
     try:
         payload.encode(encoding)
