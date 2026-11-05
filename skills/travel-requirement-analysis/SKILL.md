@@ -7,7 +7,7 @@ description: 从中文自然语言和对话上下文中提取、补全并校验�
 
 ## 共享接口与偏好
 
-接收主编排 `prepare` 后的 context，读取[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。历史偏好用于减少重复询问，标记 memory 来源；本次明确要求优先。推断兴趣仍先确认，日期、人数、预算按本次询问。用户明确要求长期记住时给宿主提供偏好更新及确认依据，由宿主调用共享 `update`；“这次”修改只交回本次需求。完成条件：输出经校验的 requirements，并区分本次更新与长期保存建议。
+接收主编排 `prepare` 后的 context，读取[共享接口](../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。历史偏好用于减少重复询问，标记 memory 来源；本次明确要求优先。推断兴趣仍先确认，日期、人数、预算按本次询问。用户明确要求长期记住时给宿主提供偏好更新及确认依据，由宿主调用共享 `update`；“这次”修改只交回本次需求。完成条件：输出经校验的 requirements，并区分本次更新与长期保存建议。
 
 把用户说法转换为可执行的旅行约束。只收集和规范需求，不查询景点、天气、路线或价格，不生成完整行程。
 

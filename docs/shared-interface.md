@@ -4,7 +4,7 @@
 
 ## 安装与运行位置
 
-保留完整仓库，在仓库根执行 `python -m travel_shared`。SQLite 默认位于当前宿主用户的 `~/.travel-planner/preferences.sqlite3`；可通过 `--db` 或环境变量 `TRAVEL_PREFERENCES_DB` 指定持久化磁盘上的绝对路径。所有调用使用同一个路径。
+保留完整仓库，在仓库根执行 `python -m travel_shared`。SQLite 默认位于当前宿主用户的 `~/.travel-planner/internal.sqlite3`，偏好 `preferences` 表与知识、会话、问卷同库。偏好库可由 `--db` 或环境变量 `TRAVEL_PREFERENCES_DB` 指定，内部库由 `TRAVEL_INTERNAL_DB` 指定；自定义内部库路径时，必须在初始化与运行时使用同一路径。初始化命令为 `python -m travel_shared.seed_knowledge`。
 
 码道仍可平铺加载九个 Skill，但共享功能还需要保留仓库中的 `travel_shared/` 和 `docs/`。宿主将 `TRAVEL_SHARED_ROOT` 配置为完整仓库的绝对路径；平铺后的相对文档链接失效时，从该目录读取 `docs/shared-interface.md`，并在该目录运行工具。该环境变量是宿主路径约定，不会自动安装或注册工具。仅复制 Skill 文件夹不能安装共享工具。
 
@@ -14,7 +14,9 @@ AgentArts 云端节点不能访问开发者电脑路径。云端需访问下面�
 
 本地入口：`python -m travel_shared --user-id demo-alice request.json`，省略文件时读取标准输入。`--user-id` 是本地可信操作者参数；云端身份必须来自后端认证，不从用户文本或模型输出提取。
 
-请求 `action` 有六种：
+请求 `action` 共 24 种。首次使用前必须先运行 `python -m travel_shared.seed_knowledge`，否则 `prepare` 返回 `status=unavailable`、`data.reason=db_not_seeded`。
+
+### 偏好（长期记忆）
 
 | action | 其他输入 | 行为 |
 |---|---|---|
@@ -22,8 +24,51 @@ AgentArts 云端节点不能访问开发者电脑路径。云端需访问下面�
 | update | preferences、confirmed=true、source | 部分更新长期偏好；整个请求校验通过才写入 |
 | delete | fields 非空字段名数组 | 删除指定偏好，重复删除成功且计数为0 |
 | clear | 无 | 清空当前用户偏好 |
-| prepare | context | 合并偏好、创建/复用快照、生成模块字段映射提示 |
+| prepare | context | 合并偏好、创建/复用快照、生成模块字段映射提示；内部库未初始化时显式失败 |
 | invoke | context | 先 prepare，再执行支持的确定性计算脚本 |
+
+### 旅行常识库（`travel_knowledge`）
+
+| action | 其他输入 | 行为 |
+|---|---|---|
+| knowledge_query | category、key、keyword（至少一个） | 查询城市/交通/预算/住宿/美食/机位/季节/市内交通常识；空结果且整表为空时附 `hint` |
+| knowledge_upsert | category、key、value、source 可选 | 新增或覆盖常识条目 |
+| knowledge_categories | 无 | 列出分类与条目数 |
+
+### 会话上下文（`session_context`）
+
+| action | 其他输入 | 行为 |
+|---|---|---|
+| session_put | trip_id、skill、stage、key、value | 写入该行程的上下文条目 |
+| session_get | trip_id、skill 可选、stage 可选、key 可选 | 读取该行程的上下文 |
+| session_get_requirements | trip_id | 读取已确认需求 JSON |
+| session_list_trips | 无 | 列出已有上下文的行程 |
+| session_clear_trip | trip_id | 清空该行程全部上下文 |
+| session_clear_stage | trip_id、skill、stage | 清空该行程某 skill 的某阶段 |
+
+### skill 能力注册表（`skill_registry`）
+
+| action | 其他输入 | 行为 |
+|---|---|---|
+| registry_query | query | 按触发关键词与描述匹配 skill，返回匹配分降序 |
+| registry_get | skill_name | 读取单个 skill 的完整元数据 |
+| registry_list | 无 | 列出全部已注册 skill |
+| registry_dependencies | skill_name | 返回传递依赖链 |
+
+### 引导问卷（`guided_questions`）
+
+| action | 其他输入 | 行为 |
+|---|---|---|
+| questionnaire_get_step | step >= 1 | 读取指定步骤（问题、选项、提示、触发 skill） |
+| questionnaire_list | 无 | 按顺序列出全部步骤 |
+| questionnaire_next | current_step >= 0 | 读取当前步骤之后的一步 |
+| questionnaire_dimensions | 无 | 列出全部问卷维度 |
+
+### 初始化
+
+| action | 其他输入 | 行为 |
+|---|---|---|
+| seed | 无 | 幂等写入 skill 注册、旅行常识与问卷数据 |
 
 示例，数据为虚构演示：
 

@@ -8,7 +8,7 @@ language: zh
 
 ## 共享接口与偏好
 
-接收统一 context；独立拍照先由宿主 prepare。读取[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。复用 photo_styles 和 photo_social_preference，当前拍摄人数、关系、地点与光线以本次为准。仅凭历史旅行人数不确定拍摄人数。使用 prepare 的提示后执行下述模型与图像工作流，共享 invoke 不生成图片；长期偏好修改交由需求分析与宿主确认保存。
+接收统一 context；独立拍照先由宿主 prepare。读取[共享接口](../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。复用 photo_styles 和 photo_social_preference，当前拍摄人数、关系、地点与光线以本次为准。仅凭历史旅行人数不确定拍摄人数。使用 prepare 的提示后执行下述模型与图像工作流，共享 invoke 不生成图片；长期偏好修改交由需求分析与宿主确认保存。
 
 ## 内部私有数据库
 

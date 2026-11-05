@@ -7,7 +7,7 @@ description: 根据旅行目的地、日期、入住人数和预算，研究住�
 
 ## 共享接口与偏好
 
-接收统一 context；独立调用时先由宿主 prepare。读取[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。将住宿喜好和本次明确条件用于比较，映射提示不代替用户确认退房日、房数和专项预算。费用计算仍接收原生 offers/budget，放入 context.payload 后可共享 invoke；旅行总预算不直接当住宿预算。用户修改长期喜好交回需求分析与宿主，不自行写数据库。
+接收统一 context；独立调用时先由宿主 prepare。读取[共享接口](../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。将住宿喜好和本次明确条件用于比较，映射提示不代替用户确认退房日、房数和专项预算。费用计算仍接收原生 offers/budget，放入 context.payload 后可共享 invoke；旅行总预算不直接当住宿预算。用户修改长期喜好交回需求分析与宿主，不自行写数据库。
 
 帮助用户决定住哪里、选哪家以及选择哪个预订方案。输出可追溯的比较依据，区分已核实事实、估算和未知信息。支持独立对话或接收旅游工作流的结构化需求。
 

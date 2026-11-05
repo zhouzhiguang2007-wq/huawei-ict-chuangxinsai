@@ -7,7 +7,7 @@ description: 校验已有旅游行程的活动时间、交通衔接、开放预�
 
 ## 共享接口与偏好
 
-读取[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。复用主编排 context 快照；仅将已确认的 review_requirements 作为硬约束，步行分钟不换算米数、交通喜好不当禁行限制。原生 {plan,candidate,as_of} 放 context.payload，调用共享 invoke；data.result 的 fail/incomplete/invalid 均不能按顶层 ok 当成通过。偏好一致性建议与确定冲突分开说明。
+读取[共享接口](../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。复用主编排 context 快照；仅将已确认的 review_requirements 作为硬约束，步行分钟不换算米数、交通喜好不当禁行限制。原生 {plan,candidate,as_of} 放 context.payload，调用共享 invoke；data.result 的 fail/incomplete/invalid 均不能按顶层 ok 当成通过。偏好一致性建议与确定冲突分开说明。
 
 检查已有行程，给出可追溯的问题和修正草案。模型负责解释和选择修正方式；确定性代码负责算术与约束判断；地图、官方资料或已接入知识库负责事实。不能用“看起来合理”代替执行检查。
 

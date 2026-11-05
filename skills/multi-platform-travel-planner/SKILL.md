@@ -7,7 +7,7 @@ description: Research and build budget-conscious, complete chronological travel 
 
 ## 共享接口与偏好
 
-使用主编排分发的 context.requirements 与 preference_snapshot，执行前读[共享接口](../../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。按兴趣、节奏和交通喜好筛选方案，不把喜好升级成硬限制。实时事实仍查询核实。完整路线脚本输入放 context.payload，共享 invoke 的 data.result 保留原生校验状态；只有业务校验通过才进入正式交付。
+使用主编排分发的 context.requirements 与 preference_snapshot，执行前读[共享接口](../../docs/shared-interface.md)；平铺加载时从宿主 `TRAVEL_SHARED_ROOT/docs/shared-interface.md` 读取。按兴趣、节奏和交通喜好筛选方案，不把喜好升级成硬限制。实时事实仍查询核实。完整路线脚本输入放 context.payload，共享 invoke 的 data.result 保留原生校验状态；只有业务校验通过才进入正式交付。
 
 Turn fragmented travel posts into a feasible, sourced plan. Treat social content as discovery evidence and official or authoritative sources as verification evidence. Follow the user's explicit constraints over the defaults below.
 

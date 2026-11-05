@@ -33,6 +33,7 @@
     "type": "local_vector",
     "index_dir": "rag/index",
     "build_script": "rag/build_index.py",
+    "validate_script": "rag/scripts/validate_skill_manifest.py",
     "retrieve_script": "rag/retrieve.py",
     "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
     "top_k": 5
@@ -45,6 +46,7 @@
     "openapi": "contracts/tools.openapi.json",
     "storage": "sqlite",
     "database_env": "TRAVEL_PREFERENCES_DB",
+    "internal_database_env": "TRAVEL_INTERNAL_DB",
     "runtime_root_env": "TRAVEL_SHARED_ROOT",
     "requires_seed": true,
     "actions": [
