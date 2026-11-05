@@ -11,6 +11,8 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from travel_shared.contracts import SKILLS, adapt_requirements, money_minor
+from travel_shared.db import init_db
+from travel_shared.seed_knowledge import seed_all
 from travel_shared.server import make_server
 from travel_shared.tools import TravelTools, main
 
@@ -31,7 +33,11 @@ class SharedToolsTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.db = Path(self.temp.name) / "preferences.sqlite3"
-        self.tools = TravelTools(self.db)
+        # prepare 现在会校验内部私有库是否已初始化（P0-3），测试用临时库需先 seed。
+        self.internal_db = Path(self.temp.name) / "internal.sqlite3"
+        init_db(str(self.internal_db))
+        seed_all(str(self.internal_db))
+        self.tools = TravelTools(self.db, internal_db_path=str(self.internal_db))
 
     def tearDown(self):
         self.temp.cleanup()
@@ -128,7 +134,7 @@ class SharedToolsTest(unittest.TestCase):
         manifest = json.loads((ROOT / "plugin.json").read_text(encoding="utf-8"))
         self.assertEqual(set(SKILLS), set(spec["components"]["schemas"]["Context"]["properties"]["skill"]["enum"]))
         self.assertEqual(set(SKILLS), set(manifest["skills"]))
-        self.assertEqual(manifest["shared_tools"]["contract_version"], "1.0")
+        self.assertEqual(manifest["shared_tools"]["contract_version"], "1.1")
         for name in SKILLS:
             self.assertIn("shared-interface.md", (ROOT / "skills" / name / "SKILL.md").read_text(encoding="utf-8"))
 

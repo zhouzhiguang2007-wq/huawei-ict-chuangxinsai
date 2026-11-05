@@ -5,6 +5,8 @@ language: zh
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 ---
 
+> 首次使用前运行 `python scripts/check_install.py <安装目录>` 自检；报告不一致时先同步 9 个 skill 目录，否则问卷、拍照等能力可能静默缺失。
+
 # 旅行规划插件（编排器）
 
 ## 共享接口与偏好入口

@@ -102,6 +102,13 @@ class TravelTools:
             elif action == "clear":
                 data = self.store.delete(user_id)
             elif action in ("prepare", "invoke"):
+                if action == "prepare" and not self._internal_db_ready():
+                    return self._result(action, "unavailable", {
+                        "ok": False,
+                        "reason": "db_not_seeded",
+                        "message": "旅行数据库尚未初始化",
+                        "fix": "python -m travel_shared.seed_knowledge",
+                    }, errors=["旅行数据库尚未初始化"])
                 data, warnings = self._prepare(request.get("context"), user_id)
                 if action == "invoke":
                     data["result"] = self._invoke(data["context"])
@@ -114,6 +121,8 @@ class TravelTools:
                     key=request.get("key"),
                     keyword=request.get("keyword"),
                 )
+                if data.get("found") is False and not self._knowledge_has_rows():
+                    data["hint"] = "知识库为空，可能未运行 seed_knowledge"
             elif action == "knowledge_upsert":
                 cat = request.get("category")
                 if cat not in KNOWLEDGE_CATEGORIES:
@@ -180,16 +189,24 @@ class TravelTools:
                 step = request.get("step")
                 if not isinstance(step, int) or step < 1:
                     raise ValueError("step must be a positive integer")
-                data = self.questionnaire.get_step(step)
+                data = self._with_empty_hint(
+                    self.questionnaire.get_step(step), self._questionnaire_has_rows(),
+                    "问卷库为空，可能未运行 seed_knowledge")
             elif action == "questionnaire_list":
-                data = self.questionnaire.list_all()
+                data = self._with_empty_hint(
+                    self.questionnaire.list_all(), self._questionnaire_has_rows(),
+                    "问卷库为空，可能未运行 seed_knowledge")
             elif action == "questionnaire_next":
                 current = request.get("current_step")
                 if not isinstance(current, int) or current < 0:
                     raise ValueError("current_step must be a nonnegative integer")
-                data = self.questionnaire.next_step(current)
+                data = self._with_empty_hint(
+                    self.questionnaire.next_step(current), self._questionnaire_has_rows(),
+                    "问卷库为空，可能未运行 seed_knowledge")
             elif action == "questionnaire_dimensions":
-                data = self.questionnaire.list_dimensions()
+                data = self._with_empty_hint(
+                    self.questionnaire.list_dimensions(), self._questionnaire_has_rows(),
+                    "问卷库为空，可能未运行 seed_knowledge")
 
             # --- seed action ---
             elif action == "seed":
@@ -207,6 +224,52 @@ class TravelTools:
         return {"schema_version": VERSION, "action": action, "status": status,
                 "data": data if data is not None else {},
                 "warnings": warnings or [], "errors": errors or []}
+
+    # --- 内部私有库就绪检查（P0-3） ---
+    # 直接用 sqlite3 只读探测，避免 get_connection 自动建表掩盖“未初始化”。
+    def _table_has_rows(self, table):
+        path = Path(self.internal_db)
+        if not path.exists():
+            return False
+        conn = sqlite3.connect(str(path), timeout=5)
+        try:
+            exists = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+                (table,),
+            ).fetchone()
+            if not exists:
+                return False
+            row = conn.execute("SELECT COUNT(*) FROM " + table).fetchone()
+            return bool(row and row[0] > 0)
+        except sqlite3.Error:
+            return False
+        finally:
+            conn.close()
+
+    def _internal_db_ready(self):
+        """问卷库存在且有行才视为已初始化。"""
+        return self._table_has_rows("guided_questions")
+
+    def _questionnaire_has_rows(self):
+        return self._table_has_rows("guided_questions")
+
+    def _knowledge_has_rows(self):
+        return self._table_has_rows("travel_knowledge")
+
+    @staticmethod
+    def _with_empty_hint(data, has_rows, hint):
+        """库为空且本次结果为空时，追加排障提示；库有数据时原样返回。"""
+        if has_rows or not isinstance(data, dict):
+            return data
+        empty = (data.get("found") is False
+                 or data.get("count") == 0
+                 or data.get("steps") == []
+                 or data.get("dimensions") == []
+                 or data.get("results") == []
+                 or data.get("legs") == [])
+        if empty:
+            data["hint"] = hint
+        return data
 
     def _prepare(self, context, user_id):
         object_value(context, "context")
