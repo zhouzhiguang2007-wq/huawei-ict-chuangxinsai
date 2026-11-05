@@ -19,7 +19,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 
 1. **RAG 检索** `python rag/retrieve.py "需求分析规范 逐轮确认 日期预算天数"` → 注入上下文
 2. 调用 `travel-requirement-analysis`：逐轮确认目的地/日期/预算/天数/人数/偏好，输出需求 JSON
-3. **RAG 检索** `"资料核实 天气 交通 12306 景点开放"` → 调用 `multi-platform-travel-planner`（发现+核实+天气+交通）；铁路日期、起终点已知时，本轮主动尝试官方 12306 查询往返车次，不能等用户提醒；用户未给可出发时段时先查全天候选，再确认时段后选车；无可用官方查询工具时记录原因，不填精确车次或时刻
+3. **RAG 检索** `"资料核实 天气 交通 12306 景点开放"` → 调用 `multi-platform-travel-planner`（发现+核实+天气+交通）；铁路日期、起终点已知时，本轮主动查询往返车次，不能等用户提醒。**优先用运行时 `12306-mcp`**（`get-current-date` → `get-station-code-by-names`/`get-station-code-of-citys` → `get-tickets`），用 `scripts/normalize_railway_mcp.py` 结构化并写入会话上下文 `railway_legs`；无该 MCP 时降级官方 12306 网页，都不可用则记录 `tool_unavailable`。用户未给可出发时段时先查全天候选，再确认时段后选车；`lookup_status` 非 `verified` 时不填精确车次或时刻。规程见 `skills/multi-platform-travel-planner/references/railway-mcp-workflow.md`
 4. 有过夜 → **RAG** `"住宿比价 位置 房型 取消政策"` → `travel-accommodation-advisor`；当日游跳过
 5. 有拍照 → **RAG** `"拍照指导 机位 姿势 构图"` → `x-xiake`；不需要拍照时跳过
 6. 调用 `multi-platform-travel-planner` 合成逐日时间线+预算报告，运行 `scripts/validate_route_timeline.py`

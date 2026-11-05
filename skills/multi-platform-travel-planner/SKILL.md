@@ -74,6 +74,22 @@ For every travel-plan report, build a door-to-door transport chain from named ai
 
 Treat official China Railway 12306 pages as the exclusive source for China railway train numbers, schedules, fares, seat classes, remaining tickets, and ticket rules. Never replace a failed 12306 query with train data from an OTA, map, social post, or search snippet. Use travel-platform public pages for flights and other non-rail fares, with final-payable-price limits clearly marked.
 
+### 12306-mcp railway lookup (embedded procedure)
+
+When the runtime exposes an MCP server named `12306-mcp`, use it as the primary railway lookup path instead of driving the web page. Read [references/railway-mcp-workflow.md](references/railway-mcp-workflow.md) and follow this sequence:
+
+1. Resolve relative dates with `get-current-date` (Asia/Shanghai) before any query.
+2. Resolve stations with `get-station-code-by-names` or `get-station-code-of-citys`; if the user gave only a city and the station choice changes time or fare, list candidate stations and ask one confirmation question.
+3. Call `get-tickets` for the outbound **and** return legs in the same turn, passing `date`, `fromStation`, `toStation`, and `trainFilterFlags` (`G` when the user says 高铁). Search the whole day when the time window is unknown, then ask before pinning a train.
+4. Normalize the raw text with `scripts/normalize_railway_mcp.py` (or call `normalize()` / `choose_leg()` / `to_route_segments()` directly). Do not hand-copy fares from memory. The script yields `lookup_status`, structured `legs[]` (train, stations, times, duration, seat classes, fares, remaining tickets) and provenance.
+5. Store the normalized result via `session_put` (`stage="verified"`, `key="railway_legs"`) so replanner, review and time-pocket skills reuse it instead of re-querying.
+
+`lookup_status` is decided from evidence, not guessed: `verified` (at least one matching train parsed), `no_result` (tool ran, no matching service), `blocked` (CAPTCHA/login/rate limit), `tool_unavailable` (no MCP, process failed, empty output), `needs_station_clarification`. Only `verified` permits writing an exact train number, time, fare or availability; every railway value carries the MCP source name (`12306-mcp:get-tickets`) and a CST query timestamp. Without `12306-mcp`, fall back to a browser tool on an official 12306 surface; if neither exists, keep railway fields `unknown`.
+
+`12306-mcp` is a community implementation reading official data. Never claim it is an official API. Do not log in, submit orders, enter passenger identity data, or present a waitlist (`候补`) seat as an available ticket.
+
+When the traveler has supplied the railway date and origin/destination, proactively open the official 12306 query surface with an available browser tool and check outbound **and** return legs before writing the itinerary.
+
 When the traveler has supplied the railway date and origin/destination, proactively open the official 12306 query surface with an available browser tool and check outbound **and** return legs before writing the itinerary. If the departure/arrival window is unknown, search the whole date to discover options, then ask which period suits the traveler before selecting a train; never treat the traveler as available all day. Do not wait for the traveler to say “查一下车次”. If station choice is material and unresolved, search the city-level result first where supported, then clarify the station before committing to a service. If no official-query capability is enabled or the official page blocks access, say exactly what was attempted or missing. Do not write an exact train number, departure/arrival time, fare, seat availability, or a precise “13:00–14:00 高铁” placeholder; keep that transport block as an unresolved time window and the affected itinerary provisional. Ask the traveler to check 12306 only after the available official lookup path was attempted or found unavailable, not as the default first step.
 
 Keep a complete “交通查询与接驳” record in the internal plan and any explicitly requested detailed report. The default traveler-facing chat answer shows only the arrival/return legs and transfers that affect a decision, with their verification status. Offer the full connection record on request. When origin/date is missing or live data is unavailable, mark affected values “待查询/未核实” instead of inventing them. A missing departure date also blocks date-specific fares and weather claims.
