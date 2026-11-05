@@ -4,6 +4,25 @@
 
 `multi-platform-travel-planner` 定义查询规则，但不能凭文本直接操作 12306。仓库中的 `agents/travel-planner.md` 已允许 `webfetch`、`websearch`；12306 的日期和站点交互通常还需要可操作网页的连接器。高德 MCP 只能查车站位置与接驳，不提供可作为 12306 官方证据的列车、票价或余票。
 
+## 首选方案：安装 12306-mcp
+
+社区已有可直接使用的 12306 MCP（推荐 `Joooook/12306-mcp`，npm 包 `12306-mcp`）。它提供 `get-tickets`、`get-station-code-by-names`、`get-current-date` 等工具，可返回真实车次、时刻、历时、席别、票价与余票，比浏览器操作更稳定。安装与验证步骤见 [12306-mcp-setup.md](12306-mcp-setup.md)。
+
+```json
+{
+  "mcpServers": {
+    "12306-mcp": {
+      "command": "npx",
+      "args": ["-y", "12306-mcp"]
+    }
+  }
+}
+```
+
+运行时优先级：**已安装 12306-mcp → 浏览器连接器打开官方页面 → 记录 tool_unavailable**。`12306-mcp` 属社区实现，结果需标注来源与查询时间，下单前以官方页面为准。
+
+## 备用方案：浏览器连接器
+
 ## 在码道桌面端接线
 
 1. 打开“扩展 > 连接器”，查找可控制浏览器的连接器并安装；新任务输入框中确认已添加。码道 IDE 用户可在“设置 > MCP 工具 > 市场”安装 Playwright MCP。连接器名称和配置入口以当前客户端界面为准。

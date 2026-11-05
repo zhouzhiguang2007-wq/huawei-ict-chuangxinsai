@@ -50,6 +50,30 @@
     "auto_registered": false
   },
   "source": "GPT/team-travel-skills-2026-10-25",
+  "mcp_servers": {
+    "railway": {
+      "name": "12306-mcp",
+      "type": "community",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "12306-mcp"],
+      "tools": [
+        "get-current-date",
+        "get-stations-code-in-city",
+        "get-station-code-of-citys",
+        "get-station-code-by-names",
+        "get-station-by-telecode",
+        "get-tickets"
+      ],
+      "document": "docs/12306-mcp-setup.md",
+      "note": "Community implementation reading official 12306 data; cite tool name and query time, defer to official page before payment. Host-side configuration, not auto-installed by the repo."
+    },
+    "map": {
+      "name": "amap",
+      "type": "host-provided",
+      "note": "Optional. Used for POI matching and first/last-mile routes; cannot verify railway trains, fares or seats."
+    }
+  },
   "codearts_compat": {
     "skill_frontmatter_fields": ["name", "description", "language", "allowed-tools"],
     "agent_definition_format": "markdown",
