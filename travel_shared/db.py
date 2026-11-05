@@ -64,6 +64,13 @@ CREATE TABLE IF NOT EXISTS guided_questions (
     updated_at      TEXT NOT NULL
 );
 
+-- Module E: user preferences are separate from guided question templates.
+CREATE TABLE IF NOT EXISTS preferences (
+    user_id TEXT NOT NULL, field TEXT NOT NULL, value_json TEXT NOT NULL,
+    source TEXT NOT NULL, updated_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, field)
+);
+
 CREATE INDEX IF NOT EXISTS idx_knowledge_category ON travel_knowledge(category);
 CREATE INDEX IF NOT EXISTS idx_session_trip ON session_context(trip_id);
 CREATE INDEX IF NOT EXISTS idx_session_skill ON session_context(trip_id, skill);

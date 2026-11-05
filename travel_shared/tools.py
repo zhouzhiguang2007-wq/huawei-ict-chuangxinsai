@@ -32,7 +32,7 @@ from .registry import SkillRegistry
 from .questionnaire import QuestionnaireStore
 
 
-DEFAULT_DB = Path(os.environ.get("TRAVEL_PREFERENCES_DB", "~/.travel-planner/preferences.sqlite3")).expanduser()
+DEFAULT_DB = Path(os.environ.get("TRAVEL_PREFERENCES_DB", os.environ.get("TRAVEL_INTERNAL_DB", "~/.travel-planner/internal.sqlite3"))).expanduser()
 DEFAULT_INTERNAL_DB = Path(os.environ.get("TRAVEL_INTERNAL_DB", "~/.travel-planner/internal.sqlite3")).expanduser()
 
 
