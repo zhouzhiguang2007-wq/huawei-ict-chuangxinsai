@@ -47,6 +47,14 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, CodeSemanticSearch
 - `registry_query` action：按用户查询匹配相关 skill
 - `registry_list` action：列出全部 9 个 skill 的完整能力描述
 
+**模块 D — 引导问卷**：12 步主动引导问卷，确保用户细化需求并覆盖全部 9 个 skill。用户泛泛提问时，编排器从问卷库逐步读取问题向用户提问，而不是等用户精确提问。
+- `questionnaire_get_step` action：按步骤号获取引导问题（含选项、提示、触发 skill）
+- `questionnaire_list` action：列出全部 12 步引导问题
+- `questionnaire_next` action：获取当前步骤之后的下一个问题
+- `questionnaire_dimensions` action：列出全部问卷维度
+
+引导问卷 12 步覆盖维度：目的地→出发地→出行时间天数→人数同行者→预算→旅行风格→交通偏好→住宿偏好→拍照需求→行程复核→离线手册→应变预案。每步标注 `triggers_skill`，确保所有 9 个 skill 都有被触发的机会。可选步骤（拍照、复核、手册、应变）允许用户跳过。
+
 调用方式：通过共享工具 `TravelTools.handle(request, user_id=...)` 发送 action 请求。
 
 ## RAG 软前置规则

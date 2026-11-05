@@ -50,9 +50,24 @@ CREATE TABLE IF NOT EXISTS skill_registry (
     updated_at      TEXT NOT NULL
 );
 
+-- Module D: guided questionnaire (proactive user prompting)
+CREATE TABLE IF NOT EXISTS guided_questions (
+    step            INTEGER PRIMARY KEY,
+    dimension       TEXT NOT NULL,
+    question        TEXT NOT NULL,
+    question_type   TEXT NOT NULL,      -- choice / fill / confirm
+    options_json    TEXT,               -- JSON array of {label, description}
+    allow_custom    INTEGER NOT NULL DEFAULT 1,
+    triggers_skill  TEXT NOT NULL,
+    tip             TEXT,
+    is_optional     INTEGER NOT NULL DEFAULT 0,
+    updated_at      TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_knowledge_category ON travel_knowledge(category);
 CREATE INDEX IF NOT EXISTS idx_session_trip ON session_context(trip_id);
 CREATE INDEX IF NOT EXISTS idx_session_skill ON session_context(trip_id, skill);
+CREATE INDEX IF NOT EXISTS idx_questions_step ON guided_questions(step);
 """
 
 

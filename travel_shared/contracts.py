@@ -31,6 +31,15 @@ REGISTRY_CATEGORIES = (
     "orchestrator", "analysis", "planning", "accommodation",
     "photo", "review", "handbook", "replanner", "pocket",
 )
+
+QUESTIONNAIRE_DIMENSIONS = (
+    "destination", "departure_location", "dates_and_duration",
+    "party_size", "budget", "travel_style", "transport_preference",
+    "accommodation_preference", "photo_needs", "review_preference",
+    "handbook_needs", "contingency_awareness",
+)
+
+QUESTION_TYPES = ("choice", "fill", "confirm")
 LIST_FIELDS = {"interests", "transport_modes", "accommodation", "photo_styles"}
 TEXT_FIELDS = {"pace", "photo_social_preference"}
 INT_FIELDS = {"walking_tolerance_minutes"}

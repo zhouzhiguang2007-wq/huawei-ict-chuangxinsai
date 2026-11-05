@@ -1,4 +1,5 @@
-"""Seed the internal database with pre-filled travel knowledge and skill registry data.
+"""Seed the internal database with pre-filled travel knowledge, skill registry,
+and guided questionnaire data.
 
 Run once after installation:
     python -m travel_shared.seed_knowledge
@@ -6,6 +7,7 @@ Run once after installation:
 This populates:
   - skill_registry: all 9 skills with trigger keywords, dependencies, etc.
   - travel_knowledge: domain facts for common Chinese travel scenarios
+  - guided_questions: 12-step proactive questionnaire covering all 9 skills
 
 The data is intentionally limited to stable, well-known facts.  Skills must
 still verify live information (prices, schedules, weather) at runtime.
@@ -14,6 +16,7 @@ still verify live information (prices, schedules, weather) at runtime.
 from .db import get_connection
 from .knowledge import KnowledgeStore
 from .registry import SkillRegistry
+from .questionnaire import QuestionnaireStore
 
 
 SKILL_REGISTRY_DATA = [
@@ -350,15 +353,218 @@ TRAVEL_KNOWLEDGE_DATA = [
 ]
 
 
+GUIDED_QUESTIONS_DATA = [
+    # --- Step 1: 目的地 ---
+    {
+        "step": 1,
+        "dimension": "destination",
+        "question": "你想去哪个城市旅行？",
+        "question_type": "choice",
+        "options": [
+            {"label": "贵阳", "description": "避暑胜地，酸汤鱼和黔灵山"},
+            {"label": "成都", "description": "火锅和熊猫，休闲之都"},
+            {"label": "重庆", "description": "山城夜景和洪崖洞"},
+            {"label": "西安", "description": "兵马俑和回民街，千年古都"},
+            {"label": "洛阳", "description": "龙门石窟和牡丹花会"},
+            {"label": "开封", "description": "清明上河园和灌汤包"},
+            {"label": "杭州", "description": "西湖和灵隐寺，人间天堂"},
+            {"label": "南京", "description": "中山陵和夫子庙，六朝古都"},
+            {"label": "长沙", "description": "橘子洲和臭豆腐，网红城市"},
+            {"label": "北京", "description": "故宫和长城，首都风范"},
+        ],
+        "allow_custom": True,
+        "triggers_skill": "travel-requirement-analysis",
+        "tip": "如果不确定具体城市，可以告诉我们你想去的省份或地区，我们会帮你推荐",
+    },
+    # --- Step 2: 出发地 ---
+    {
+        "step": 2,
+        "dimension": "departure_location",
+        "question": "你从哪里出发？请告诉我们具体的出发地点",
+        "question_type": "fill",
+        "options": [],
+        "allow_custom": True,
+        "triggers_skill": "travel-requirement-analysis",
+        "tip": "请具体到地址、小区、学校校区或车站名，这样我们才能帮你规划精确的出门时间和接驳路线。只说城市名（如\"福州\"）不够精确",
+    },
+    # --- Step 3: 出行时间和天数 ---
+    {
+        "step": 3,
+        "dimension": "dates_and_duration",
+        "question": "你打算什么时候出发？计划玩几天？",
+        "question_type": "fill",
+        "options": [],
+        "allow_custom": True,
+        "triggers_skill": "travel-requirement-analysis",
+        "tip": "如果有具体日期最好，比如\"4月15日出发，玩3天\"。如果还没定，可以告诉我们大概的时间范围或季节偏好",
+    },
+    # --- Step 4: 人数和同行者 ---
+    {
+        "step": 4,
+        "dimension": "party_size",
+        "question": "几个人一起去？同行者的情况是？",
+        "question_type": "choice",
+        "options": [
+            {"label": "独自出行", "description": "一个人自由自在"},
+            {"label": "两人同行", "description": "情侣或朋友双人"},
+            {"label": "家庭出游（含老人或小孩）", "description": "需要考虑老人小孩的体力和节奏"},
+            {"label": "三五好友", "description": "3-5人小团体"},
+            {"label": "团队出行（6人以上）", "description": "需要考虑团体票和住宿安排"},
+        ],
+        "allow_custom": True,
+        "triggers_skill": "travel-requirement-analysis",
+        "tip": "人数会影响住宿房型、门票价格和交通安排。如果有老人或小孩，我们会调整行程节奏",
+    },
+    # --- Step 5: 预算 ---
+    {
+        "step": 5,
+        "dimension": "budget",
+        "question": "这次旅行的预算大概是多少？",
+        "question_type": "choice",
+        "options": [
+            {"label": "经济型（150-400元/人/天）", "description": "快捷酒店+路边小吃+公交地铁"},
+            {"label": "中档（400-800元/人/天）", "description": "品牌酒店+特色餐厅+打车"},
+            {"label": "高档（800-2000元/人/天）", "description": "五星酒店+高级餐厅+专车"},
+            {"label": "不确定，帮我估一下", "description": "根据目的地和天数推荐预算范围"},
+        ],
+        "allow_custom": True,
+        "triggers_skill": "travel-requirement-analysis",
+        "tip": "预算是人均还是总预算？请说明口径，比如\"两个人总共3000元\"",
+    },
+    # --- Step 6: 旅行风格和兴趣 ---
+    {
+        "step": 6,
+        "dimension": "travel_style",
+        "question": "你更偏好哪种旅行风格？",
+        "question_type": "choice",
+        "options": [
+            {"label": "历史人文", "description": "古迹、博物馆、老城区、传统文化"},
+            {"label": "城市现代", "description": "网红打卡、商圈、夜景、城市风貌"},
+            {"label": "自然风光", "description": "山水、公园、湖泊、户外徒步"},
+            {"label": "美食探店", "description": "地方特色美食、夜市小吃、老字号"},
+            {"label": "休闲度假", "description": "慢节奏、泡茶发呆、温泉放松"},
+            {"label": "混合搭配", "description": "什么都想体验一点"},
+        ],
+        "allow_custom": True,
+        "triggers_skill": "multi-platform-travel-planner",
+        "tip": "你的偏好会决定我们推荐哪些景点和活动。可以多选，比如\"历史人文+美食探店\"",
+    },
+    # --- Step 7: 交通偏好 ---
+    {
+        "step": 7,
+        "dimension": "transport_preference",
+        "question": "城际交通你更倾向哪种方式？",
+        "question_type": "choice",
+        "options": [
+            {"label": "高铁/动车", "description": "快速准时，适合中短途（5小时以内）"},
+            {"label": "飞机", "description": "适合长途或跨省，含机场往返时间"},
+            {"label": "普铁/过夜火车", "description": "省钱省住宿，适合学生和背包客"},
+            {"label": "自驾", "description": "自由灵活，适合沿途有风景的路线"},
+            {"label": "大巴", "description": "经济实惠，适合短途城际"},
+            {"label": "都可以，你帮我选", "description": "根据距离和时间自动推荐最优交通"},
+        ],
+        "allow_custom": True,
+        "triggers_skill": "multi-platform-travel-planner",
+        "tip": "市内交通我们会根据城市情况推荐地铁/打车/公交组合",
+    },
+    # --- Step 8: 住宿偏好 ---
+    {
+        "step": 8,
+        "dimension": "accommodation_preference",
+        "question": "住宿方面你有什么偏好？",
+        "question_type": "choice",
+        "options": [
+            {"label": "快捷酒店", "description": "干净基本，100-300元/晚，连锁品牌"},
+            {"label": "精品民宿", "description": "有设计感和本地特色，200-600元/晚"},
+            {"label": "三星酒店", "description": "标准化服务，300-500元/晚，位置好"},
+            {"label": "五星酒店", "description": "全套服务，600-2000+元/晚，位置核心"},
+            {"label": "青年旅舍", "description": "多人间床位，30-100元，社交氛围"},
+            {"label": "还没想好，帮我推荐", "description": "根据预算和行程自动推荐住宿类型"},
+        ],
+        "allow_custom": True,
+        "triggers_skill": "travel-accommodation-advisor",
+        "tip": "住宿位置很重要：景区附近方便游览，交通枢纽附近方便赶车。我们会帮你比较不同住区的优劣",
+    },
+    # --- Step 9: 拍照需求 ---
+    {
+        "step": 9,
+        "dimension": "photo_needs",
+        "question": "旅行中有没有拍照出片的需求？",
+        "question_type": "choice",
+        "options": [
+            {"label": "想拍出好看的旅行照", "description": "我们会为你提供机位、姿势和构图指导"},
+            {"label": "朋友帮我拍，但不会拍", "description": "我们会教你朋友怎么拍，给拍摄口令"},
+            {"label": "社恐不想找路人帮忙", "description": "我们会给你自拍/独自出片方案"},
+            {"label": "想拍但不知道在哪拍", "description": "我们会推荐每个景点的最佳拍照机位"},
+            {"label": "不需要拍照建议", "description": "跳过拍照环节"},
+        ],
+        "allow_custom": True,
+        "triggers_skill": "x-xiake",
+        "tip": "拍照指导是我们的特色功能！即使你不会拍照，我们也能教你朋友用手机拍出好看的旅行照",
+        "is_optional": True,
+    },
+    # --- Step 10: 行程复核 ---
+    {
+        "step": 10,
+        "dimension": "review_preference",
+        "question": "行程规划完成后，你希望我们做哪些检查？",
+        "question_type": "choice",
+        "options": [
+            {"label": "全面复核（推荐）", "description": "检查时间冲突、景点开放、交通衔接、预算是否超支"},
+            {"label": "只检查时间和交通", "description": "确保行程时间合理、交通衔接顺畅"},
+            {"label": "只检查预算", "description": "确保总花费不超预算"},
+            {"label": "不需要复核", "description": "跳过复核环节"},
+        ],
+        "allow_custom": True,
+        "triggers_skill": "travel-plan-review",
+        "tip": "复核能帮你发现行程中的潜在问题：景点闭园、时间冲突、接驳不合理等",
+        "is_optional": True,
+    },
+    # --- Step 11: 离线手册 ---
+    {
+        "step": 11,
+        "dimension": "handbook_needs",
+        "question": "需要把行程做成手机上可以离线打开的旅行手册吗？",
+        "question_type": "choice",
+        "options": [
+            {"label": "需要离线手册（推荐）", "description": "生成HTML页面，手机浏览器打开，无需网络"},
+            {"label": "不需要", "description": "直接看聊天里的行程就行"},
+        ],
+        "allow_custom": False,
+        "triggers_skill": "travel-handbook-builder",
+        "tip": "离线手册包含行程时间线、位置示意、美食和景点卡片，旅行途中没网也能看",
+        "is_optional": True,
+    },
+    # --- Step 12: 应变预案 awareness ---
+    {
+        "step": 12,
+        "dimension": "contingency_awareness",
+        "question": "旅途中如果遇到突发情况，我们可以帮你应对：",
+        "question_type": "confirm",
+        "options": [
+            {"label": "了解应变能力", "description": "高铁晚点/景点关闭/天气突变 → 自动重排剩余行程；临时有空档 → 推荐附近微行程"},
+            {"label": "不需要，先规划好就行", "description": "跳过应变预案介绍"},
+        ],
+        "allow_custom": False,
+        "triggers_skill": "travel-replanner",
+        "tip": "旅途中随时可以告诉我们：\"高铁晚点了\"、\"下雨了\"、\"还有两小时去哪逛\"，我们会即时调整行程",
+        "is_optional": True,
+    },
+]
+
+
 def seed_all(db_path=None):
     """Populate the internal database with all seed data."""
     registry = SkillRegistry(db_path)
     knowledge = KnowledgeStore(db_path)
+    questionnaire = QuestionnaireStore(db_path)
 
     reg_result = registry.bulk_upsert(SKILL_REGISTRY_DATA)
     know_result = knowledge.bulk_upsert(TRAVEL_KNOWLEDGE_DATA)
+    quest_result = questionnaire.bulk_upsert(GUIDED_QUESTIONS_DATA)
 
-    return {"skill_registry": reg_result, "travel_knowledge": know_result}
+    return {"skill_registry": reg_result, "travel_knowledge": know_result,
+            "guided_questions": quest_result}
 
 
 if __name__ == "__main__":

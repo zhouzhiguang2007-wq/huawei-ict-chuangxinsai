@@ -8,6 +8,9 @@ Extended with internal private database actions:
   - session_clear: delete context for a trip or stage (Module B)
   - registry_query: match skills by query / list all skills (Module C)
   - registry_get: get full metadata for one skill (Module C)
+  - questionnaire_get_step: get a guided question by step number (Module D)
+  - questionnaire_list: list all guided questions in order (Module D)
+  - questionnaire_next: get the next question after current step (Module D)
   - seed: populate the internal database with pre-filled data
 """
 
@@ -19,12 +22,14 @@ from copy import deepcopy
 from pathlib import Path
 
 from .contracts import (VERSION, SKILLS, KNOWLEDGE_CATEGORIES, REGISTRY_CATEGORIES,
+                        QUESTIONNAIRE_DIMENSIONS, QUESTION_TYPES,
                         adapt_requirements, merge_preferences,
                         nonempty, object_value, validate_preferences)
 from .preferences import PreferenceStore
 from .knowledge import KnowledgeStore
 from .session import SessionStore
 from .registry import SkillRegistry
+from .questionnaire import QuestionnaireStore
 
 
 DEFAULT_DB = Path(os.environ.get("TRAVEL_PREFERENCES_DB", "~/.travel-planner/preferences.sqlite3")).expanduser()
@@ -40,6 +45,7 @@ class TravelTools:
         self.knowledge = KnowledgeStore(self.internal_db)
         self.session = SessionStore(self.internal_db)
         self.registry = SkillRegistry(self.internal_db)
+        self.questionnaire = QuestionnaireStore(self.internal_db)
 
     def handle(self, request, *, user_id):
         action = request.get("action") if isinstance(request, dict) else None
@@ -70,6 +76,11 @@ class TravelTools:
                 "registry_get": {"action", "skill_name"},
                 "registry_list": {"action"},
                 "registry_dependencies": {"action", "skill_name"},
+                # questionnaire actions (Module D)
+                "questionnaire_get_step": {"action", "step"},
+                "questionnaire_list": {"action"},
+                "questionnaire_next": {"action", "current_step"},
+                "questionnaire_dimensions": {"action"},
                 # seed action
                 "seed": {"action"},
             }
@@ -163,6 +174,22 @@ class TravelTools:
             elif action == "registry_dependencies":
                 nonempty(request.get("skill_name"), "skill_name")
                 data = self.registry.dependencies(request["skill_name"])
+
+            # --- questionnaire actions (Module D) ---
+            elif action == "questionnaire_get_step":
+                step = request.get("step")
+                if not isinstance(step, int) or step < 1:
+                    raise ValueError("step must be a positive integer")
+                data = self.questionnaire.get_step(step)
+            elif action == "questionnaire_list":
+                data = self.questionnaire.list_all()
+            elif action == "questionnaire_next":
+                current = request.get("current_step")
+                if not isinstance(current, int) or current < 0:
+                    raise ValueError("current_step must be a nonnegative integer")
+                data = self.questionnaire.next_step(current)
+            elif action == "questionnaire_dimensions":
+                data = self.questionnaire.list_dimensions()
 
             # --- seed action ---
             elif action == "seed":
