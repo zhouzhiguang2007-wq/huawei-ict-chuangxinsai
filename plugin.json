@@ -36,6 +36,7 @@
     "validate_script": "rag/scripts/validate_skill_manifest.py",
     "retrieve_script": "rag/retrieve.py",
     "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
+    "requirements": "requirements-rag.txt",
     "top_k": 5
   },
   "agent": "travel-planner",
@@ -76,7 +77,7 @@
       "prepare"
     ],
     "questionnaire": {
-      "steps": 12,
+      "steps": 13,
       "storage": "sqlite:guided_questions",
       "requires_seed": true,
       "gate": "before_planning",

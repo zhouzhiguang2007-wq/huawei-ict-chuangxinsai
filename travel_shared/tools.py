@@ -25,6 +25,7 @@ from .contracts import (VERSION, SKILLS, KNOWLEDGE_CATEGORIES, REGISTRY_CATEGORI
                         QUESTIONNAIRE_DIMENSIONS, QUESTION_TYPES,
                         adapt_requirements, merge_preferences,
                         nonempty, object_value, validate_preferences)
+from .db import default_internal_db_path
 from .preferences import PreferenceStore
 from .knowledge import KnowledgeStore
 from .session import SessionStore
@@ -32,8 +33,8 @@ from .registry import SkillRegistry
 from .questionnaire import QuestionnaireStore
 
 
-DEFAULT_DB = Path(os.environ.get("TRAVEL_PREFERENCES_DB", os.environ.get("TRAVEL_INTERNAL_DB", "~/.travel-planner/internal.sqlite3"))).expanduser()
-DEFAULT_INTERNAL_DB = Path(os.environ.get("TRAVEL_INTERNAL_DB", "~/.travel-planner/internal.sqlite3")).expanduser()
+DEFAULT_INTERNAL_DB = default_internal_db_path()
+DEFAULT_DB = Path(os.environ.get("TRAVEL_PREFERENCES_DB", str(DEFAULT_INTERNAL_DB))).expanduser()
 
 
 class TravelTools:
@@ -145,6 +146,7 @@ class TravelTools:
                 data = self.session.put(
                     request["trip_id"], request["skill"],
                     request["stage"], request["key"], request["value"],
+                    user_id=user_id,
                 )
             elif action == "session_get":
                 nonempty(request.get("trip_id"), "trip_id")
@@ -153,15 +155,18 @@ class TravelTools:
                     skill=request.get("skill"),
                     stage=request.get("stage"),
                     key=request.get("key"),
+                    user_id=user_id,
                 )
             elif action == "session_get_requirements":
                 nonempty(request.get("trip_id"), "trip_id")
-                data = self.session.get_requirements(request["trip_id"])
+                data = self.session.get_requirements(request["trip_id"],
+                                                     user_id=user_id)
             elif action == "session_list_trips":
-                data = self.session.list_trips()
+                data = self.session.list_trips(user_id=user_id)
             elif action == "session_clear_trip":
                 nonempty(request.get("trip_id"), "trip_id")
-                data = self.session.clear_trip(request["trip_id"])
+                data = self.session.clear_trip(request["trip_id"],
+                                               user_id=user_id)
             elif action == "session_clear_stage":
                 nonempty(request.get("trip_id"), "trip_id")
                 if request.get("skill") not in SKILLS:
@@ -169,6 +174,7 @@ class TravelTools:
                 nonempty(request.get("stage"), "stage")
                 data = self.session.clear_stage(
                     request["trip_id"], request["skill"], request["stage"],
+                    user_id=user_id,
                 )
 
             # --- registry actions (Module C) ---

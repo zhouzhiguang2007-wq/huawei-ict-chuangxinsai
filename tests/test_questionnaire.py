@@ -133,10 +133,10 @@ class TestQuestionnaireStore(QuestionnaireTestCase):
 
 class TestSeedQuestionnaire(QuestionnaireTestCase):
 
-    def test_seed_populates_12_steps(self):
+    def test_seed_populates_13_steps(self):
         qs = QuestionnaireStore(self.seeded_db)
         result = qs.list_all()
-        self.assertEqual(result["count"], 12)
+        self.assertEqual(result["count"], 13)
 
     def test_seed_step_1_destination(self):
         qs = QuestionnaireStore(self.seeded_db)
@@ -177,6 +177,14 @@ class TestSeedQuestionnaire(QuestionnaireTestCase):
         self.assertEqual(result["dimension"], "contingency_awareness")
         self.assertEqual(result["triggers_skill"], "travel-replanner")
 
+    def test_seed_step_13_pocket(self):
+        qs = QuestionnaireStore(self.seeded_db)
+        result = qs.get_step(13)
+        self.assertTrue(result["found"])
+        self.assertEqual(result["dimension"], "pocket_time_needs")
+        self.assertEqual(result["triggers_skill"], "travel-time-pocket")
+        self.assertTrue(result["is_optional"])
+
     def test_seed_covers_all_skills(self):
         qs = QuestionnaireStore(self.seeded_db)
         result = qs.list_all()
@@ -186,7 +194,7 @@ class TestSeedQuestionnaire(QuestionnaireTestCase):
         expected = {"travel-requirement-analysis", "multi-platform-travel-planner",
                     "travel-accommodation-advisor", "x-xiake",
                     "travel-plan-review", "travel-handbook-builder",
-                    "travel-replanner"}
+                    "travel-replanner", "travel-time-pocket"}
         self.assertTrue(expected.issubset(all_skills))
 
     def test_seed_dimensions_in_order(self):
@@ -195,25 +203,25 @@ class TestSeedQuestionnaire(QuestionnaireTestCase):
         dims = result["dimensions"]
         self.assertEqual(dims[0], "destination")
         self.assertEqual(dims[1], "departure_location")
-        self.assertEqual(dims[-1], "contingency_awareness")
+        self.assertEqual(dims[-1], "pocket_time_needs")
 
     def test_seed_next_step_chaining(self):
         qs = QuestionnaireStore(self.seeded_db)
-        for step_num in range(1, 12):
+        for step_num in range(1, 13):
             result = qs.next_step(step_num)
             self.assertTrue(result["found"])
             self.assertEqual(result["step"], step_num + 1)
 
     def test_seed_next_step_after_last(self):
         qs = QuestionnaireStore(self.seeded_db)
-        result = qs.next_step(12)
+        result = qs.next_step(13)
         self.assertFalse(result["found"])
 
     def test_seed_idempotent(self):
         seed_all(self.seeded_db)
         seed_all(self.seeded_db)
         qs = QuestionnaireStore(self.seeded_db)
-        self.assertEqual(qs.list_all()["count"], 12)
+        self.assertEqual(qs.list_all()["count"], 13)
 
 
 # ===== tools.py integration tests =====
@@ -237,7 +245,7 @@ class TestToolsQuestionnaireIntegration(QuestionnaireTestCase):
             user_id="test_user",
         )
         self.assertEqual(result["status"], "ok")
-        self.assertEqual(result["data"]["count"], 12)
+        self.assertEqual(result["data"]["count"], 13)
 
     def test_questionnaire_next_action(self):
         tools = TravelTools(internal_db_path=self.seeded_db)
@@ -256,7 +264,7 @@ class TestToolsQuestionnaireIntegration(QuestionnaireTestCase):
             user_id="test_user",
         )
         self.assertEqual(result["status"], "ok")
-        self.assertEqual(len(result["data"]["dimensions"]), 12)
+        self.assertEqual(len(result["data"]["dimensions"]), 13)
 
     def test_questionnaire_get_step_invalid_step(self):
         tools = TravelTools(internal_db_path=self.seeded_db)
@@ -281,7 +289,7 @@ class TestToolsQuestionnaireIntegration(QuestionnaireTestCase):
             user_id="test_user",
         )
         self.assertEqual(result["status"], "ok")
-        self.assertEqual(result["data"]["guided_questions"]["count"], 12)
+        self.assertEqual(result["data"]["guided_questions"]["count"], 13)
 
     def test_preference_actions_still_work(self):
         tools = TravelTools(internal_db_path=self.tmp_db)

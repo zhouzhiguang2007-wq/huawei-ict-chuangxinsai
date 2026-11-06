@@ -36,7 +36,7 @@ QUESTIONNAIRE_DIMENSIONS = (
     "destination", "departure_location", "dates_and_duration",
     "party_size", "budget", "travel_style", "transport_preference",
     "accommodation_preference", "photo_needs", "review_preference",
-    "handbook_needs", "contingency_awareness",
+    "handbook_needs", "contingency_awareness", "pocket_time_needs",
 )
 
 QUESTION_TYPES = ("choice", "fill", "confirm")

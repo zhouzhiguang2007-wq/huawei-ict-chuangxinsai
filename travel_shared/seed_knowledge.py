@@ -7,7 +7,8 @@ Run once after installation:
 This populates:
   - skill_registry: all 9 skills with trigger keywords, dependencies, etc.
   - travel_knowledge: domain facts for common Chinese travel scenarios
-  - guided_questions: 12-step proactive questionnaire covering all 9 skills
+  - guided_questions: 13-step proactive questionnaire covering 8 runtime skills
+    (the orchestrator itself is driven by the flow, not by a question step)
 
 The data is intentionally limited to stable, well-known facts.  Skills must
 still verify live information (prices, schedules, weather) at runtime.
@@ -550,6 +551,22 @@ GUIDED_QUESTIONS_DATA = [
         "tip": "旅途中随时可以告诉我们：\"高铁晚点了\"、\"下雨了\"、\"还有两小时去哪逛\"，我们会即时调整行程",
         "is_optional": True,
     },
+    # --- Step 13: 临时空档微行程 ---
+    {
+        "step": 13,
+        "dimension": "pocket_time_needs",
+        "question": "旅途中如果出现临时空档（等车、等飞机、提前到），需要推荐附近的短时活动吗？",
+        "question_type": "choice",
+        "options": [
+            {"label": "需要（推荐）", "description": "按去回程、游玩和安全缓冲给附近微行程"},
+            {"label": "只在等车时推荐", "description": "车站/机场周边 1-2 小时活动"},
+            {"label": "不需要", "description": "空档自行安排"},
+        ],
+        "allow_custom": True,
+        "triggers_skill": "travel-time-pocket",
+        "tip": "临时空档和原行程不冲突时，我们会给出「去回程+可玩时间+安全缓冲」的微行程，不会压缩赶车时间",
+        "is_optional": True,
+    },
 ]
 
 
@@ -568,5 +585,6 @@ def seed_all(db_path=None):
 
 
 if __name__ == "__main__":
-    result = seed_all()
+    from .db import default_internal_db_path
+    result = seed_all(str(default_internal_db_path()))
     print(f"Seeded: {result}")

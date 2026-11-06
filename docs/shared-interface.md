@@ -37,9 +37,11 @@ AgentArts 云端节点不能访问开发者电脑路径。云端需访问下面�
 
 ### 会话上下文（`session_context`）
 
+所有会话 action 都按宿主传入的可信 `user_id` 归属；查询、写入、删除与行程列表均按用户隔离，避免多用户共用 `trip_id` 时串数据。旧版无 `user_id` 的库在首次连接时自动迁移，旧数据归属空用户。
+
 | action | 其他输入 | 行为 |
 |---|---|---|
-| session_put | trip_id、skill、stage、key、value | 写入该行程的上下文条目 |
+| session_put | trip_id、skill、stage、key、value | 写入该行程的上下文条目，归属当前 user_id |
 | session_get | trip_id、skill 可选、stage 可选、key 可选 | 读取该行程的上下文 |
 | session_get_requirements | trip_id | 读取已确认需求 JSON |
 | session_list_trips | 无 | 列出已有上下文的行程 |
