@@ -8,7 +8,7 @@
 
 码道仍可平铺加载九个 Skill，但共享功能还需要保留仓库中的 `travel_shared/` 和 `docs/`。宿主将 `TRAVEL_SHARED_ROOT` 配置为完整仓库的绝对路径；平铺后的相对文档链接失效时，从该目录读取 `docs/shared-interface.md`，并在该目录运行工具。该环境变量是宿主路径约定，不会自动安装或注册工具。仅复制 Skill 文件夹不能安装共享工具。
 
-AgentArts 云端节点不能访问开发者电脑路径。云端需访问下面的 HTTP 后端，或在拥有持久化磁盘的可信后端导入 `travel_shared.tools.main`。各 Agent 使用统一接口即可，无需各自保存数据库副本。
+AgentArts 云端节点不能访问开发者电脑路径。云端需访问下面的 HTTP 后端，或在拥有持久化磁盘的可信后端导入 `travel_shared.tools.main`。单 Agent 编排各 skill 时使用统一接口，无需为每个 skill 保存数据库副本。
 
 ## 统一工具请求与响应
 
@@ -161,7 +161,7 @@ CLI 对应退出码为0、2、3。HTTP 对应200、400、503，身份认证失�
 1. 主编排从可信宿主取得身份与 trip_id，读取记忆并建立偏好快照。对用户简要说明沿用的历史偏好，允许本次覆盖。
 2. 需求分析识别“这次”与“以后都这样”。推测只生成待确认提问；用户明确要求记住或确认长期保存后，才由可信宿主提交 update，source 记录确认依据。confirmed 是宿主决策，不能因模型猜测就填 true。
 3. 本次预算、日期、人数、同行关系、天气、位置和临时体力不写入长期偏好。明确长期拍照社交偏好可记录，但不据此推断心理健康状况。
-4. 主编排把同一 context 快照分发给各 Agent，分别构造 payload，并核对业务结果。手册只接收最终交付数据。
+4. 主编排在调用各 skill 时复用同一 context 快照，分别构造 payload，并核对业务结果。手册只接收最终交付数据。
 5. get/delete/clear 响应成功后才告知“已读取/删除”；update 失败明确说“未保存”。prepare 读取失败仍使用本次输入继续问答，并在 warnings 说明。
 
 ## HTTP 与 AgentArts 接入
@@ -171,8 +171,12 @@ PowerShell 本地示例：
 ```powershell
 # token 使用随机值；示例标记须替换，密钥只保留在后端配置。
 $env:TRAVEL_TOOL_TOKENS='{"replace-with-random-token":"demo-alice"}'
-python -m travel_shared.server --db ./data/preferences.sqlite3
+$env:TRAVEL_INTERNAL_DB='./data/internal.sqlite3'
+python -m travel_shared.seed_knowledge
+python -m travel_shared.server
 ```
+
+`TRAVEL_INTERNAL_DB` 同时决定知识、会话、问卷与默认偏好的存储位置，初始化与启动须使用同一路径。`server --db` 仅覆盖偏好库路径；需要刻意将偏好分库存储时才传入，不会改变其他内部数据的路径。
 
 后端只提供 `POST /v1/tools`，Body 为上述请求 JSON，认证头 `Authorization: Bearer <token>`。服务端按 token 查用户身份，拒绝请求中的 user_id。token 表适合受控 Demo；真实多用户应用由登录后端确定身份并调用 Python 接口，不能让所有用户共用一个固定身份 token。密钥放在平台工具的受保护配置中，不写进提示词、浏览器前端或仓库。
 
@@ -182,6 +186,6 @@ python -m travel_shared.server --db ./data/preferences.sqlite3
 
 ## 验收
 
-运行 `python scripts/run_checks.py`：包括共享工具与 HTTP 联调、原有全部独立脚本测试和 Skill 清单校验。`examples/shared-tools/` 是模拟请求，可按 update → prepare → get → clear 顺序本地试跑。
+运行 `python scripts/run_checks.py`：包括共享工具与 HTTP 联调、原有全部独立脚本测试和 Skill 清单校验。`examples/shared-tools/` 是模拟请求，可按 update → prepare → get → clear 顺序本地试跑；内部数据库示例先运行 seed，再依次试 `session_put.json` → `session_get_requirements.json`，两次调用使用相同的可信 `user_id` 和 `trip_id`。请求 JSON 不包含 `user_id`。
 
-平台验收：同一用户新会话仍记住；不同用户隔离；“这次快节奏”不覆盖长期慢节奏；改变长期偏好后下一轮生效；一轮多 Agent 快照一致；删除后新快照不再复用；数据库不可用继续问答但不宣称保存；演示复核失败时不交付为可执行行程。工具测试不能代替平台实际模型调用和部署验证。
+平台验收：同一用户新会话仍记住；不同用户隔离；“这次快节奏”不覆盖长期慢节奏；改变长期偏好后下一轮生效；一轮各 skill 的偏好快照一致；删除后新快照不再复用；数据库不可用继续问答但不宣称保存；演示复核失败时不交付为可执行行程。工具测试不能代替平台实际模型调用和部署验证。

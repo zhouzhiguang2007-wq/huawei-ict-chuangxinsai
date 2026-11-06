@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "scripts") not in sys.path:
@@ -64,11 +65,17 @@ class CheckInstallTest(unittest.TestCase):
         self.assertTrue(any(c[0] == "travel-time-pocket" for c in missing))
 
     def test_cli_exit_codes(self):
-        self.assertEqual(check_install.main([]), 2)
+        with patch.object(check_install, "DEFAULT_INSTALL_DIRS", (Path(self.temp.name) / "absent",)):
+            self.assertEqual(check_install.main([]), 2)
         self.assertEqual(check_install.main([str(self.install)]), 0)
         target = self.install / "x-xiake" / "SKILL.md"
         target.write_text("drift", encoding="utf-8")
         self.assertEqual(check_install.main([str(self.install)]), 1)
+
+    def test_cli_uses_first_existing_default_install(self):
+        absent = Path(self.temp.name) / "absent"
+        with patch.object(check_install, "DEFAULT_INSTALL_DIRS", (absent, self.install)):
+            self.assertEqual(check_install.main([]), 0)
 
 
 if __name__ == "__main__":

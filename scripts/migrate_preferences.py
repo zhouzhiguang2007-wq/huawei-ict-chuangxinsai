@@ -47,6 +47,27 @@ def _load_rows(source):
         conn.close()
 
 
+def _backup_target(target):
+    """Create a unique backup without replacing one from an earlier run."""
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]
+    base = target.name + ".bak." + stamp
+    sequence = 0
+    while True:
+        suffix = "" if sequence == 0 else ".{}".format(sequence)
+        backup_path = target.with_name(base + suffix)
+        try:
+            with backup_path.open("xb") as destination:
+                with target.open("rb") as source:
+                    shutil.copyfileobj(source, destination)
+            shutil.copystat(str(target), str(backup_path))
+            return backup_path
+        except FileExistsError:
+            sequence += 1
+        except Exception:
+            backup_path.unlink(missing_ok=True)
+            raise
+
+
 def migrate(source, target, *, dry_run=False, backup=True):
     """把 source 的偏好合并进 target，返回统计报告。"""
     source = Path(source)
@@ -76,9 +97,7 @@ def migrate(source, target, *, dry_run=False, backup=True):
         return report
 
     if backup and target.exists():
-        stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        backup_path = target.with_name(target.name + ".bak." + stamp)
-        shutil.copy2(str(target), str(backup_path))
+        backup_path = _backup_target(target)
         report["backup"] = str(backup_path)
 
     conn = get_connection(str(target))

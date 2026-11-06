@@ -2,6 +2,16 @@
 
 > 平台名称以你控制台实际显示为准（华为云 AgentArts / 智能体平台）。仓库不能自动部署，以下步骤需要在控制台操作。
 
+若你的控制台显示为“智果平台”，字段名称可能与下文不同，请以实际页面为准。部署时逐项核对以下 5 个字段：
+
+| 控制台字段 | 核对内容 |
+|---|---|
+| Agent 名称 | `travel-planner`，与入口定义一致 |
+| 技能绑定 | 按 `plugin.json.skills` 绑定 9 个 skill |
+| 工具注册 | 共享后端 `POST /v1/tools` 可调用，核对 24 个 action 的入口 |
+| MCP 配置 | 按需配置 12306-mcp、高德 MCP，并检查连接状态 |
+| 环境变量 | 核对 `TRAVEL_INTERNAL_DB`、`TRAVEL_SHARED_ROOT`、`TRAVEL_TOOL_TOKENS` 的实际值与后端一致 |
+
 ## 1. 前置条件
 
 | 项 | 要求 |

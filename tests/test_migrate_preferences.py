@@ -9,7 +9,9 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "scripts") not in sys.path:
@@ -137,6 +139,27 @@ class MigratePreferencesTest(unittest.TestCase):
         make_prefs(self.source, [("dave", "pace", json.dumps("balanced"), "y", "2026-01-01T00:00:00+00:00")])
         report = migrate_preferences.migrate(self.source, self.target, backup=False)
         self.assertIsNone(report["backup"])
+
+    def test_same_timestamp_keeps_both_backups(self):
+        make_prefs(self.target, [("carol", "pace", json.dumps("relaxed"), "已有", "2026-01-01T00:00:00+00:00")])
+        make_prefs(self.source, [("dave", "pace", json.dumps("balanced"), "用户确认", "2026-01-01T00:00:00+00:00")])
+
+        class FixedClock:
+            @staticmethod
+            def now():
+                return datetime(2026, 1, 2, 3, 4, 5, 123000)
+
+        with patch.object(migrate_preferences, "datetime", FixedClock):
+            first = migrate_preferences.migrate(self.source, self.target)
+            second = migrate_preferences.migrate(self.source, self.target)
+
+        first_backup = Path(first["backup"])
+        second_backup = Path(second["backup"])
+        self.assertNotEqual(first_backup, second_backup)
+        self.assertTrue(first_backup.exists())
+        self.assertTrue(second_backup.exists())
+        self.assertEqual(len(read_prefs(first_backup)), 1)
+        self.assertEqual(len(read_prefs(second_backup)), 2)
 
     def test_cli_returns_zero(self):
         make_prefs(self.source, [

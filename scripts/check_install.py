@@ -4,12 +4,12 @@
 不再只比对单个文件，避免 references/scripts 静默漂移。
 
 用法：
-    python scripts/check_install.py <本地 skills 安装目录>
+    python scripts/check_install.py [本地 skills 安装目录]
 
 退出码：
     0  全部一致
     1  存在差异或未安装
-    2  参数缺失或目录不存在
+    2  参数错误或未找到安装目录
 
 只做只读比对，不修改任何文件；输出 SKILL 文件 SHA-256 前 12 位便于排查。
 纯标准库，Python 3.9+。
@@ -26,7 +26,11 @@ HASH_LEN = 12
 EXCLUDE_DIRS = {"__pycache__", ".pytest_cache"}
 EXCLUDE_SUFFIXES = {".pyc", ".pyo"}
 
-USAGE = "用法：python scripts/check_install.py <本地 skills 安装目录>"
+USAGE = "用法：python scripts/check_install.py [本地 skills 安装目录]"
+DEFAULT_INSTALL_DIRS = (
+    Path.home() / ".workbuddy" / "skills",
+    Path.home() / ".codeartsdoer" / "cache" / "user" / "skills",
+)
 
 
 def sha12(path):
@@ -104,11 +108,16 @@ def check(install_dir, root=ROOT):
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    if len(argv) != 1:
+    if len(argv) > 1:
         print(USAGE)
         return 2
 
-    install_dir = Path(argv[0])
+    install_dir = Path(argv[0]) if argv else next(
+        (path for path in DEFAULT_INSTALL_DIRS if path.is_dir()), None)
+    if install_dir is None:
+        print(USAGE)
+        print("未找到默认安装目录：{}".format("、".join(map(str, DEFAULT_INSTALL_DIRS))))
+        return 2
     if not install_dir.is_dir():
         print(USAGE)
         print("安装目录不存在：{}".format(install_dir))
