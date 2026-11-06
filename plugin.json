@@ -1,7 +1,7 @@
 {
   "$schema": "./plugin.schema.json",
   "name": "travel-planner-plugin",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "display_name": "旅行规划插件",
   "description": "端到端旅游规划工作流：需求确认→资料核实→住宿→拍照→合成报告→复核→手册，含自建本地 RAG",
   "install_check": "scripts/check_install.py",
@@ -85,6 +85,78 @@
     },
     "requirement_agent": "agents/travel-requirement-analysis.md",
     "auto_registered": false
+  },
+  "skill_graph": {
+    "document": "docs/skill-map.md",
+    "nodes": [
+      "travel-planner-plugin",
+      "travel-requirement-analysis",
+      "multi-platform-travel-planner",
+      "travel-accommodation-advisor",
+      "x-xiake",
+      "travel-plan-review",
+      "travel-handbook-builder",
+      "travel-replanner",
+      "travel-time-pocket"
+    ],
+    "edges": [
+      {"from": "travel-planner-plugin", "to": "travel-requirement-analysis", "kind": "delegates"},
+      {"from": "travel-planner-plugin", "to": "multi-platform-travel-planner", "kind": "delegates"},
+      {"from": "travel-planner-plugin", "to": "travel-accommodation-advisor", "kind": "delegates"},
+      {"from": "travel-planner-plugin", "to": "x-xiake", "kind": "delegates"},
+      {"from": "travel-planner-plugin", "to": "travel-plan-review", "kind": "delegates"},
+      {"from": "travel-planner-plugin", "to": "travel-handbook-builder", "kind": "delegates"},
+      {"from": "travel-requirement-analysis", "to": "multi-platform-travel-planner", "kind": "requirements"},
+      {"from": "travel-requirement-analysis", "to": "travel-accommodation-advisor", "kind": "requirements"},
+      {"from": "multi-platform-travel-planner", "to": "travel-accommodation-advisor", "kind": "spots_and_dates"},
+      {"from": "multi-platform-travel-planner", "to": "x-xiake", "kind": "spots"},
+      {"from": "x-xiake", "to": "multi-platform-travel-planner", "kind": "photo_guides"},
+      {"from": "multi-platform-travel-planner", "to": "travel-plan-review", "kind": "itinerary"},
+      {"from": "travel-plan-review", "to": "travel-handbook-builder", "kind": "reviewed_itinerary"},
+      {"from": "travel-plan-review", "to": "travel-replanner", "kind": "blocking_issue"},
+      {"from": "travel-replanner", "to": "travel-plan-review", "kind": "replanned_itinerary"},
+      {"from": "travel-plan-review", "to": "travel-time-pocket", "kind": "free_window"},
+      {"from": "travel-planner-plugin", "to": "travel-replanner", "kind": "delegates"},
+      {"from": "travel-planner-plugin", "to": "travel-time-pocket", "kind": "delegates"}
+    ],
+    "shared_state": {
+      "module": "travel_shared",
+      "session_key": "session_context",
+      "knowledge_key": "travel_knowledge",
+      "registry_key": "skill_registry",
+      "questionnaire_key": "guided_questions"
+    }
+  },
+  "deployment": {
+    "target": "huawei-cloud-agentarts",
+    "entry_agent": "agents/travel-planner.md",
+    "skills_dir": "skills",
+    "guide": "docs/deploy-agentarts.md",
+    "requires": {
+      "python": "3.9+",
+      "node": "18+ (optional, for 12306-mcp)",
+      "persistent_disk": true,
+      "env": [
+        "TRAVEL_INTERNAL_DB",
+        "TRAVEL_SHARED_ROOT",
+        "TRAVEL_TOOL_TOKENS"
+      ]
+    },
+    "backend": {
+      "type": "http",
+      "module": "travel_shared.server",
+      "endpoint": "POST /v1/tools",
+      "openapi": "contracts/tools.openapi.json"
+    },
+    "mcp": ["railway", "map"],
+    "rag": "optional"
+  },
+  "acceptance": {
+    "script": "scripts/e2e_smoke.py",
+    "e2e": "docs/acceptance-e2e.md",
+    "mcp": "docs/acceptance-mcp.md",
+    "manual": "docs/acceptance-manual.md",
+    "demo": "docs/demo-script.md"
   },
   "source": "GPT/team-travel-skills-2026-10-25",
   "mcp_servers": {

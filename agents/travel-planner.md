@@ -33,6 +33,15 @@ disable: false
 
 收到旅游规划类请求时，调用 `travel-planner-plugin` skill，按其编排顺序执行。不直接绕过主入口调用子 skill。
 
+## 插件整体
+
+本 Agent 是插件唯一入口。skill 上下游、共享状态与调用顺序见 `docs/skill-map.md`，分层与降级见 `docs/architecture.md`。
+
+- 9 个 skill 通过 `travel_shared` 协作：需求写入 `session_context`（按可信 `user_id` 隔离），下游读取不复问；常识查 `travel_knowledge`；能力匹配用 `registry_query`；引导用 `questionnaire_get_step`（13 步）。
+- 首次使用必须先用 `python -m travel_shared.seed_knowledge` 初始化；未初始化时 `prepare` 返回 `status=unavailable`、`reason=db_not_seeded`，不要继续假装已就绪。
+- 交付后分流：行程受扰动 → `travel-replanner` → 复核 → 需要时重建手册；临时空档且原行程无冲突 → `travel-time-pocket`。
+- 平台部署与人工验收分别见 `docs/deploy-agentarts.md`、`docs/acceptance-manual.md`。
+
 ## 触发场景
 
 - 帮我做一份旅游报告 / 自由行攻略 / 逐日行程
