@@ -10,7 +10,7 @@
 - **一个编排器**：`skills/travel-planner-plugin`，按 13 步问卷 → 需求 → 核实 → 住宿 → 拍照 → 合成 → 复核 → 手册执行。
 - **8 个执行 skill**：需求分析、资料核实、住宿、拍照、复核、手册、重排、空档。
 - **一层共享状态**：`travel_shared`（SQLite：知识/会话/注册表/问卷/偏好，24 个 action）。
-- **外部能力**：本地 RAG（可选）、12306-mcp（可选）、高德 MCP（可选）。
+- **外部能力**：本地 RAG（可选）、12306-mcp（可选）、天气（彩云官方 MCP / Open-Meteo 回退）、高德 MCP（可选）、住宿（仅网页，无官方 API）。
 
 完整关系见 [skill 关系图](docs/skill-map.md)，分层与数据流见 [整体架构](docs/architecture.md)。
 
@@ -64,6 +64,8 @@ python scripts/export_plugin.py             # 生成可分发包
 - [docs/deploy-agentarts.md](docs/deploy-agentarts.md)：部署步骤
 - [docs/demo-script.md](docs/demo-script.md)：演示脚本
 - [docs/acceptance-manual.md](docs/acceptance-manual.md)：人工验收
+- [docs/weather-setup.md](docs/weather-setup.md)：天气接入（官方 MCP + 回退）
+- [docs/accommodation-tools.md](docs/accommodation-tools.md)：住宿工具现状与边界
 - [rag/](rag/)：本地向量库（可选）
 - [CHANGELOG.md](CHANGELOG.md)：版本变更
 

@@ -2,6 +2,15 @@
 
 Read this reference when weather affects a travel plan, the trip is within 10 days, or the user asks which hours are suitable for an outdoor activity.
 
+## 0. Runtime priority for this plugin
+
+1. If the host exposes the Caiyun weather MCP (`mcp-weather.caiyunapp.com/mcp`, header `X-Caiyun-API-Key`), call its tools first.
+2. Otherwise run `python scripts/check_weather.py --city <城市>` (Open-Meteo, free, no key) or pass `--lat/--lon` for other areas.
+3. If neither is available, use a browser to read an official meteorological source.
+4. If all fail, mark weather `unknown`; never invent a forecast.
+
+Every weather statement must carry `source`, `queried_at`, temperature range and precipitation probability. Setup and fallback details: `docs/weather-setup.md`.
+
 The goal is an actionable traveler decision, not a generic weather summary. Answer questions such as “when can I walk without rain?”, “which hours have strong sun?”, “should I move this attraction indoors?”, and “when should I recheck?”.
 
 ## 1. Resolve the forecast location

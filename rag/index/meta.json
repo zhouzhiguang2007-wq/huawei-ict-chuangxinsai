@@ -1,6 +1,6 @@
 {
   "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
   "dim": 384,
-  "n": 259,
-  "build_time": "2026-11-06 08:15:31"
+  "n": 262,
+  "build_time": "2026-11-06 10:38:28"
 }

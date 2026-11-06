@@ -27,7 +27,10 @@
       "travel-plan-review",
       "travel-handbook-builder"
     ],
-    "post_delivery": ["travel-replanner", "travel-time-pocket"]
+    "post_delivery": [
+      "travel-replanner",
+      "travel-time-pocket"
+    ]
   },
   "rag": {
     "type": "local_vector",
@@ -100,24 +103,96 @@
       "travel-time-pocket"
     ],
     "edges": [
-      {"from": "travel-planner-plugin", "to": "travel-requirement-analysis", "kind": "delegates"},
-      {"from": "travel-planner-plugin", "to": "multi-platform-travel-planner", "kind": "delegates"},
-      {"from": "travel-planner-plugin", "to": "travel-accommodation-advisor", "kind": "delegates"},
-      {"from": "travel-planner-plugin", "to": "x-xiake", "kind": "delegates"},
-      {"from": "travel-planner-plugin", "to": "travel-plan-review", "kind": "delegates"},
-      {"from": "travel-planner-plugin", "to": "travel-handbook-builder", "kind": "delegates"},
-      {"from": "travel-requirement-analysis", "to": "multi-platform-travel-planner", "kind": "requirements"},
-      {"from": "travel-requirement-analysis", "to": "travel-accommodation-advisor", "kind": "requirements"},
-      {"from": "multi-platform-travel-planner", "to": "travel-accommodation-advisor", "kind": "spots_and_dates"},
-      {"from": "multi-platform-travel-planner", "to": "x-xiake", "kind": "spots"},
-      {"from": "x-xiake", "to": "multi-platform-travel-planner", "kind": "photo_guides"},
-      {"from": "multi-platform-travel-planner", "to": "travel-plan-review", "kind": "itinerary"},
-      {"from": "travel-plan-review", "to": "travel-handbook-builder", "kind": "reviewed_itinerary"},
-      {"from": "travel-plan-review", "to": "travel-replanner", "kind": "blocking_issue"},
-      {"from": "travel-replanner", "to": "travel-plan-review", "kind": "replanned_itinerary"},
-      {"from": "travel-plan-review", "to": "travel-time-pocket", "kind": "free_window"},
-      {"from": "travel-planner-plugin", "to": "travel-replanner", "kind": "delegates"},
-      {"from": "travel-planner-plugin", "to": "travel-time-pocket", "kind": "delegates"}
+      {
+        "from": "travel-planner-plugin",
+        "to": "travel-requirement-analysis",
+        "kind": "delegates"
+      },
+      {
+        "from": "travel-planner-plugin",
+        "to": "multi-platform-travel-planner",
+        "kind": "delegates"
+      },
+      {
+        "from": "travel-planner-plugin",
+        "to": "travel-accommodation-advisor",
+        "kind": "delegates"
+      },
+      {
+        "from": "travel-planner-plugin",
+        "to": "x-xiake",
+        "kind": "delegates"
+      },
+      {
+        "from": "travel-planner-plugin",
+        "to": "travel-plan-review",
+        "kind": "delegates"
+      },
+      {
+        "from": "travel-planner-plugin",
+        "to": "travel-handbook-builder",
+        "kind": "delegates"
+      },
+      {
+        "from": "travel-requirement-analysis",
+        "to": "multi-platform-travel-planner",
+        "kind": "requirements"
+      },
+      {
+        "from": "travel-requirement-analysis",
+        "to": "travel-accommodation-advisor",
+        "kind": "requirements"
+      },
+      {
+        "from": "multi-platform-travel-planner",
+        "to": "travel-accommodation-advisor",
+        "kind": "spots_and_dates"
+      },
+      {
+        "from": "multi-platform-travel-planner",
+        "to": "x-xiake",
+        "kind": "spots"
+      },
+      {
+        "from": "x-xiake",
+        "to": "multi-platform-travel-planner",
+        "kind": "photo_guides"
+      },
+      {
+        "from": "multi-platform-travel-planner",
+        "to": "travel-plan-review",
+        "kind": "itinerary"
+      },
+      {
+        "from": "travel-plan-review",
+        "to": "travel-handbook-builder",
+        "kind": "reviewed_itinerary"
+      },
+      {
+        "from": "travel-plan-review",
+        "to": "travel-replanner",
+        "kind": "blocking_issue"
+      },
+      {
+        "from": "travel-replanner",
+        "to": "travel-plan-review",
+        "kind": "replanned_itinerary"
+      },
+      {
+        "from": "travel-plan-review",
+        "to": "travel-time-pocket",
+        "kind": "free_window"
+      },
+      {
+        "from": "travel-planner-plugin",
+        "to": "travel-replanner",
+        "kind": "delegates"
+      },
+      {
+        "from": "travel-planner-plugin",
+        "to": "travel-time-pocket",
+        "kind": "delegates"
+      }
     ],
     "shared_state": {
       "module": "travel_shared",
@@ -148,7 +223,11 @@
       "endpoint": "POST /v1/tools",
       "openapi": "contracts/tools.openapi.json"
     },
-    "mcp": ["railway", "map"],
+    "mcp": [
+      "railway",
+      "map",
+      "weather"
+    ],
     "rag": "optional"
   },
   "acceptance": {
@@ -156,7 +235,9 @@
     "e2e": "docs/acceptance-e2e.md",
     "mcp": "docs/acceptance-mcp.md",
     "manual": "docs/acceptance-manual.md",
-    "demo": "docs/demo-script.md"
+    "demo": "docs/demo-script.md",
+    "weather": "docs/weather-setup.md",
+    "accommodation": "docs/accommodation-tools.md"
   },
   "source": "GPT/team-travel-skills-2026-10-25",
   "mcp_servers": {
@@ -165,7 +246,10 @@
       "type": "community",
       "transport": "stdio",
       "command": "npx",
-      "args": ["-y", "12306-mcp"],
+      "args": [
+        "-y",
+        "12306-mcp"
+      ],
       "tools": [
         "get-current-date",
         "get-stations-code-in-city",
@@ -180,11 +264,37 @@
     "map": {
       "name": "amap",
       "type": "host-provided",
-      "note": "Optional. Used for POI matching and first/last-mile routes; cannot verify railway trains, fares or seats."
+      "note": "Optional. Host-provided or community MCP/API; resolves POI and first/last-mile routes. Not an official Amap MCP; cannot verify railway trains or hotel prices."
+    },
+    "weather": {
+      "primary": {
+        "name": "caiyun-weather",
+        "type": "official-hosted",
+        "url": "https://mcp-weather.caiyunapp.com/mcp",
+        "header": "X-Caiyun-API-Key",
+        "requires_key": true
+      },
+      "fallback": {
+        "name": "open-meteo",
+        "type": "free-api",
+        "requires_key": false
+      },
+      "check": "scripts/check_weather.py",
+      "document": "docs/weather-setup.md"
+    },
+    "accommodation": {
+      "official_api": false,
+      "document": "docs/accommodation-tools.md",
+      "note": "No public official hotel pricing API/MCP; read sales pages and mark fares as pending confirmation."
     }
   },
   "codearts_compat": {
-    "skill_frontmatter_fields": ["name", "description", "language", "allowed-tools"],
+    "skill_frontmatter_fields": [
+      "name",
+      "description",
+      "language",
+      "allowed-tools"
+    ],
     "agent_definition_format": "markdown",
     "no_builtin_rag": true
   }
